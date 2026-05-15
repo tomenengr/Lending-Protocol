@@ -61,6 +61,8 @@ abstract contract MiniLendingTestBase is Test {
             liquidationThresholdBps: 8_000,
             liquidationBonusBps: 1_000,
             supplyCap: 10_000 ether,
+            debtCeilingUsd: 0,
+            isolated: false,
             enabled: true
         });
         configs[1] = RiskEngine.RiskConfig({
@@ -68,6 +70,8 @@ abstract contract MiniLendingTestBase is Test {
             liquidationThresholdBps: 7_500,
             liquidationBonusBps: 1_000,
             supplyCap: 1_000e8,
+            debtCeilingUsd: 20_000e18,
+            isolated: true,
             enabled: true
         });
         riskEngine = new RiskEngine(collateralAssets, configs);

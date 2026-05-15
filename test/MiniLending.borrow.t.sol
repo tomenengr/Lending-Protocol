@@ -72,10 +72,10 @@ contract MiniLendingBorrowTest is MiniLendingTestBase {
 
     function test_borrowAgainstWBTC() public {
         _depositWbtc(alice, 1e8);
-        _borrow(alice, 42_000e6);
+        _borrow(alice, 20_000e6);
 
-        assertEq(lending.debtUSDC(alice), 42_000e6);
-        assertEq(lending.getHealthFactor(alice), 60_000e18 * 7_500 / BPS * WAD / 42_000e18);
+        assertEq(lending.debtUSDC(alice), 20_000e6);
+        assertEq(lending.getHealthFactor(alice), 60_000e18 * 7_500 / BPS * WAD / 20_000e18);
     }
 
     function test_revertBorrowZeroAmount() public {

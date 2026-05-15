@@ -41,7 +41,7 @@ contract MiniLendingHandler is StdInvariant {
 
         vm.startPrank(actor);
         weth.approve(address(lending), amount);
-        lending.depositCollateral(address(weth), amount);
+        try lending.depositCollateral(address(weth), amount) {} catch {}
         vm.stopPrank();
     }
 
@@ -51,7 +51,7 @@ contract MiniLendingHandler is StdInvariant {
 
         vm.startPrank(actor);
         wbtc.approve(address(lending), amount);
-        lending.depositCollateral(address(wbtc), amount);
+        try lending.depositCollateral(address(wbtc), amount) {} catch {}
         vm.stopPrank();
     }
 
@@ -233,8 +233,8 @@ contract MiniLendingInvariantTest is StdInvariant {
         RiskEngine.RiskConfig[] memory configs = new RiskEngine.RiskConfig[](2);
         collateralAssets[0] = address(weth);
         collateralAssets[1] = address(wbtc);
-        configs[0] = RiskEngine.RiskConfig(7_500, 8_000, 1_000, 10_000 ether, true);
-        configs[1] = RiskEngine.RiskConfig(7_000, 7_500, 1_000, 1_000e8, true);
+        configs[0] = RiskEngine.RiskConfig(7_500, 8_000, 1_000, 10_000 ether, 0, false, true);
+        configs[1] = RiskEngine.RiskConfig(7_000, 7_500, 1_000, 1_000e8, 20_000e18, true, true);
         riskEngine = new RiskEngine(collateralAssets, configs);
         lending = new MiniLending(usdc, oracle, riskEngine, collateralAssets);
 
