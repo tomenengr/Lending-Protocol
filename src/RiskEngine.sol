@@ -12,6 +12,8 @@ contract RiskEngine {
         uint256 liquidationThresholdBps;
         uint256 liquidationBonusBps;
         uint256 supplyCap;
+        uint256 debtCeilingUsd;
+        bool isolated;
         bool enabled;
     }
 
@@ -25,6 +27,8 @@ contract RiskEngine {
         uint256 liquidationThresholdBps,
         uint256 liquidationBonusBps,
         uint256 supplyCap,
+        uint256 debtCeilingUsd,
+        bool isolated,
         bool enabled
     );
 
@@ -100,6 +104,11 @@ contract RiskEngine {
             require(config.liquidationThresholdBps <= BPS, "INVALID_LIQ_THRESHOLD");
             require(config.liquidationBonusBps <= BPS, "INVALID_LIQ_BONUS");
             require(config.supplyCap > 0, "INVALID_SUPPLY_CAP");
+            if (config.isolated) {
+                require(config.debtCeilingUsd > 0, "INVALID_DEBT_CEILING");
+            } else {
+                require(config.debtCeilingUsd == 0, "INVALID_DEBT_CEILING");
+            }
         }
 
         _riskConfigs[asset] = config;
@@ -109,6 +118,8 @@ contract RiskEngine {
             config.liquidationThresholdBps,
             config.liquidationBonusBps,
             config.supplyCap,
+            config.debtCeilingUsd,
+            config.isolated,
             config.enabled
         );
     }

@@ -187,20 +187,23 @@ uint256 public badDebtUSDC;
 
 ### V1.6：Aave 风格高级风险控制
 
-状态：部分完成。Supply cap 和 global borrow cap 已完成。
+状态：大部分完成。Supply cap、global borrow cap、isolation mode、全局 pause、资产 freeze 和 price heartbeat 已完成。
 
 已完成：
 
 - supply cap：限制每种抵押品总供应量。
 - global borrow cap：限制 base asset 总借款量。
+- isolation mode：高风险抵押品不能和其他抵押品混用，并且只能借到固定 debt ceiling。
+- pause：协议级异常时暂停新增风险和资金流出。
+- freeze：单个抵押品异常时冻结该资产的新风险敞口。
+- price heartbeat：对不同资产设置更细的价格更新窗口。
 
 还可以逐步加：
 
-- isolation mode：某些高风险抵押品只能借固定债务上限。
 - eMode：相关性强的资产使用更高 collateral factor。
-- pause / freeze：紧急情况下冻结存款或借款。
+- 更完整的参数治理延迟和多签流程。
 
-下一步建议优先做 isolation mode，因为它能和 WBTC 这类更高风险抵押品形成清晰叙事：高风险资产可以作为抵押品，但只能借有限数量的 base asset。
+下一步建议优先做 reserve withdraw 或 bad debt recapitalization。它们能补齐风险管理里的“协议收入管理”和“坏账处理”两个常见面试追问点。
 
 ### V1.7：Keeper 和 fork test
 
@@ -224,7 +227,7 @@ uint256 public badDebtUSDC;
 
 推荐表述：
 
-> 基于 Solidity 和 Foundry 实现 Aave 风格风险模型与 Compound III 风格单一借款资产架构的迷你借贷协议，支持多抵押资产、MockUSDC 供应池、MockUSDC 借款、健康因子、预言机定价、borrow/supply index、utilization kink rate、supply cap、global borrow cap、协议储备金、close factor、直接清算、absorb/buyCollateral 两阶段清算、坏账记录、unit/fuzz/invariant 测试。
+> 基于 Solidity 和 Foundry 实现 Aave 风格风险模型与 Compound III 风格单一借款资产架构的迷你借贷协议，支持多抵押资产、MockUSDC 供应池、MockUSDC 借款、健康因子、预言机定价、按资产配置 price heartbeat、borrow/supply index、utilization kink rate、supply cap、global borrow cap、isolation mode、pause/freeze 应急控制、协议储备金、close factor、直接清算、absorb/buyCollateral 两阶段清算、坏账记录、unit/fuzz/invariant 测试。
 
 面试时重点讲：
 

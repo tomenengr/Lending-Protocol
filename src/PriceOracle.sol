@@ -12,9 +12,11 @@ contract PriceOracle is IPriceOracle {
     uint256 public stalePeriod;
 
     mapping(address asset => IAggregatorV3 feed) public feeds;
+    mapping(address asset => uint256 heartbeat) public assetHeartbeat;
 
     event FeedSet(address indexed asset, address indexed feed);
     event StalePeriodSet(uint256 stalePeriod);
+    event AssetHeartbeatSet(address indexed asset, uint256 heartbeat);
 
     modifier onlyOwner() {
         require(msg.sender == owner, "ONLY_OWNER");
@@ -44,6 +46,13 @@ contract PriceOracle is IPriceOracle {
         emit StalePeriodSet(stalePeriod_);
     }
 
+    function setAssetHeartbeat(address asset, uint256 heartbeat) external onlyOwner {
+        require(address(feeds[asset]) != address(0), "NO_FEED");
+        require(heartbeat > 0, "ZERO_HEARTBEAT");
+        assetHeartbeat[asset] = heartbeat;
+        emit AssetHeartbeatSet(asset, heartbeat);
+    }
+
     function transferOwnership(address newOwner) external onlyOwner {
         require(newOwner != address(0), "ZERO_OWNER");
         owner = newOwner;
@@ -60,7 +69,7 @@ contract PriceOracle is IPriceOracle {
         (, int256 answer,, uint256 updatedAt,) = feed.latestRoundData();
         require(answer > 0, "INVALID_PRICE");
         require(updatedAt <= block.timestamp, "STALE_PRICE");
-        require(block.timestamp - updatedAt <= stalePeriod, "STALE_PRICE");
+        require(block.timestamp - updatedAt <= _heartbeatFor(asset), "STALE_PRICE");
 
         return _scaleToE18(uint256(answer), feed.decimals());
     }
@@ -80,5 +89,10 @@ contract PriceOracle is IPriceOracle {
             return value * (10 ** (18 - feedDecimals));
         }
         return value / (10 ** (feedDecimals - 18));
+    }
+
+    function _heartbeatFor(address asset) internal view returns (uint256) {
+        uint256 heartbeat = assetHeartbeat[asset];
+        return heartbeat == 0 ? stalePeriod : heartbeat;
     }
 }

@@ -34,10 +34,13 @@ contract MiniLending {
 
     address[] public collateralAssets;
     mapping(address asset => bool enabled) public isCollateralAsset;
+    mapping(address asset => bool frozen) public assetFrozen;
 
     IERC20Metadata public immutable usdc;
     IPriceOracle public oracle;
     RiskEngine public riskEngine;
+    address public owner;
+    bool public paused;
 
     event CollateralDeposited(address indexed user, address indexed asset, uint256 amount);
     event CollateralWithdrawn(address indexed user, address indexed asset, uint256 amount);
@@ -61,6 +64,19 @@ contract MiniLending {
     event CollateralPurchased(
         address indexed buyer, address indexed collateralAsset, uint256 paidUSDC, uint256 collateralPurchased
     );
+    event OwnershipTransferred(address indexed previousOwner, address indexed newOwner);
+    event PausedSet(bool paused);
+    event AssetFrozenSet(address indexed asset, bool frozen);
+
+    modifier onlyOwner() {
+        require(msg.sender == owner, "ONLY_OWNER");
+        _;
+    }
+
+    modifier whenNotPaused() {
+        require(!paused, "PAUSED");
+        _;
+    }
 
     constructor(
         IERC20Metadata usdc_,
@@ -79,6 +95,7 @@ contract MiniLending {
         borrowIndex = WAD;
         supplyIndex = WAD;
         lastAccrualTimestamp = block.timestamp;
+        owner = msg.sender;
 
         for (uint256 i = 0; i < collateralAssets_.length; i++) {
             address asset = collateralAssets_[i];
@@ -89,13 +106,34 @@ contract MiniLending {
             isCollateralAsset[asset] = true;
             collateralAssets.push(asset);
         }
+
+        emit OwnershipTransferred(address(0), msg.sender);
     }
 
-    function depositCollateral(address asset, uint256 amount) external {
+    function transferOwnership(address newOwner) external onlyOwner {
+        require(newOwner != address(0), "ZERO_OWNER");
+        emit OwnershipTransferred(owner, newOwner);
+        owner = newOwner;
+    }
+
+    function setPaused(bool paused_) external onlyOwner {
+        paused = paused_;
+        emit PausedSet(paused_);
+    }
+
+    function setAssetFrozen(address asset, bool frozen) external onlyOwner {
         require(isCollateralAsset[asset], "UNSUPPORTED_ASSET");
+        assetFrozen[asset] = frozen;
+        emit AssetFrozenSet(asset, frozen);
+    }
+
+    function depositCollateral(address asset, uint256 amount) external whenNotPaused {
+        require(isCollateralAsset[asset], "UNSUPPORTED_ASSET");
+        require(!assetFrozen[asset], "ASSET_FROZEN");
         require(amount > 0, "ZERO_AMOUNT");
         RiskEngine.RiskConfig memory config = riskEngine.getRiskConfig(asset);
         require(totalCollateral[asset] + amount <= config.supplyCap, "SUPPLY_CAP_EXCEEDED");
+        _enforceIsolationOnDeposit(msg.sender, asset, config);
 
         collateralBalance[msg.sender][asset] += amount;
         totalCollateral[asset] += amount;
@@ -104,7 +142,7 @@ contract MiniLending {
         emit CollateralDeposited(msg.sender, asset, amount);
     }
 
-    function supplyBase(uint256 amountUSDC) external {
+    function supplyBase(uint256 amountUSDC) external whenNotPaused {
         require(amountUSDC > 0, "ZERO_AMOUNT");
         accrueInterest();
 
@@ -118,7 +156,7 @@ contract MiniLending {
         emit BaseSupplied(msg.sender, amountUSDC);
     }
 
-    function withdrawBase(uint256 amountUSDC) external {
+    function withdrawBase(uint256 amountUSDC) external whenNotPaused {
         require(amountUSDC > 0, "ZERO_AMOUNT");
         accrueInterest();
 
@@ -136,7 +174,7 @@ contract MiniLending {
         emit BaseWithdrawn(msg.sender, amountUSDC);
     }
 
-    function withdrawCollateral(address asset, uint256 amount) external {
+    function withdrawCollateral(address asset, uint256 amount) external whenNotPaused {
         require(isCollateralAsset[asset], "UNSUPPORTED_ASSET");
         require(amount > 0, "ZERO_AMOUNT");
         accrueInterest();
@@ -150,8 +188,9 @@ contract MiniLending {
         emit CollateralWithdrawn(msg.sender, asset, amount);
     }
 
-    function borrow(uint256 amountUSDC) external {
+    function borrow(uint256 amountUSDC) external whenNotPaused {
         require(amountUSDC > 0, "ZERO_AMOUNT");
+        _requireNoFrozenCollateral(msg.sender);
         accrueInterest();
         require(getAvailableLiquidity() >= amountUSDC, "INSUFFICIENT_LIQUIDITY");
         require(totalBorrowedUSDC() + amountUSDC <= GLOBAL_BORROW_CAP_USDC, "BORROW_CAP_EXCEEDED");
@@ -271,7 +310,10 @@ contract MiniLending {
         emit Absorbed(msg.sender, borrower, borrowerDebt, badDebtRecognized);
     }
 
-    function buyCollateral(address collateralAsset, uint256 amountUSDC, uint256 minCollateralAmount) external {
+    function buyCollateral(address collateralAsset, uint256 amountUSDC, uint256 minCollateralAmount)
+        external
+        whenNotPaused
+    {
         require(isCollateralAsset[collateralAsset], "UNSUPPORTED_ASSET");
         require(amountUSDC > 0, "ZERO_AMOUNT");
         accrueInterest();
@@ -397,6 +439,7 @@ contract MiniLending {
         returns (uint256 totalCollateralUsd, uint256 borrowableUsd, uint256 debtUsd, uint256 healthFactor)
     {
         uint256 adjustedCollateralUsd;
+        uint256 isolationDebtCeilingUsd = type(uint256).max;
 
         for (uint256 i = 0; i < collateralAssets.length; i++) {
             address asset = collateralAssets[i];
@@ -406,9 +449,17 @@ contract MiniLending {
             }
 
             uint256 collateralValueUsd = _assetToUsd(asset, balance);
+            RiskEngine.RiskConfig memory config = riskEngine.getRiskConfig(asset);
             totalCollateralUsd += collateralValueUsd;
-            borrowableUsd += riskEngine.calculateBorrowableUsd(asset, collateralValueUsd);
+            borrowableUsd += collateralValueUsd * config.collateralFactorBps / BPS;
             adjustedCollateralUsd += riskEngine.calculateLiquidationThresholdUsd(asset, collateralValueUsd);
+            if (config.isolated && config.debtCeilingUsd < isolationDebtCeilingUsd) {
+                isolationDebtCeilingUsd = config.debtCeilingUsd;
+            }
+        }
+
+        if (borrowableUsd > isolationDebtCeilingUsd) {
+            borrowableUsd = isolationDebtCeilingUsd;
         }
 
         debtUsd = _debtToUsd(debtAmountUSDC);
@@ -424,6 +475,30 @@ contract MiniLending {
     function _debtToUsd(uint256 amountUSDC) internal view returns (uint256) {
         uint256 priceE18 = oracle.getPrice(address(usdc));
         return amountUSDC * priceE18 / (10 ** usdc.decimals());
+    }
+
+    function _enforceIsolationOnDeposit(address user, address depositAsset, RiskEngine.RiskConfig memory depositConfig)
+        internal
+        view
+    {
+        for (uint256 i = 0; i < collateralAssets.length; i++) {
+            address asset = collateralAssets[i];
+            if (asset == depositAsset || collateralBalance[user][asset] == 0) {
+                continue;
+            }
+
+            RiskEngine.RiskConfig memory existingConfig = riskEngine.getRiskConfig(asset);
+            require(!depositConfig.isolated && !existingConfig.isolated, "ISOLATION_MODE_COLLATERAL");
+        }
+    }
+
+    function _requireNoFrozenCollateral(address user) internal view {
+        for (uint256 i = 0; i < collateralAssets.length; i++) {
+            address asset = collateralAssets[i];
+            if (assetFrozen[asset] && collateralBalance[user][asset] > 0) {
+                revert("FROZEN_COLLATERAL");
+            }
+        }
     }
 
     function _usdToDebtRoundUp(uint256 valueUsd) internal view returns (uint256) {

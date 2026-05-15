@@ -11,6 +11,9 @@
 - 拒绝 stale price。
 - 拒绝未来 `updatedAt` 时间戳。
 - 将不同 feed decimals 统一转换成 18 位精度。
+- 支持全局默认 stale period。
+- 支持按资产配置 heartbeat override。
+- 单资产 heartbeat 可以比默认值更短或更长，测试覆盖两种路径。
 
 ### 借款安全
 
@@ -26,6 +29,16 @@
 - `withdrawCollateral`、`liquidate` 和 `absorb` 会同步减少用户抵押品的 `totalCollateral` 统计。
 - `absorb` 转入协议账本的抵押品不再占用用户侧 supply cap。
 - `borrow` 会检查协议级 borrow cap。
+- WBTC isolation mode 会阻止 WBTC 和 WETH 混合作为同一账户抵押品。
+- WBTC 的可借额度会被 20,000 USD debt ceiling 截断。
+
+### 应急控制安全
+
+- 只有 owner 可以设置全局 pause 和资产 freeze。
+- pause 会阻止新增抵押、供应、赎回、借款和购买协议抵押品。
+- pause 不阻止 `repay`、`liquidate` 和 `absorb`，因此紧急状态下仍能降低债务和处理不健康仓位。
+- asset freeze 会阻止冻结资产的新抵押和基于冻结资产的新增借款。
+- asset freeze 不阻止还款、赎回和清算，避免冻结后用户无法降低风险。
 
 ### 供应池和利息安全
 
@@ -66,10 +79,9 @@ Invariant 测试检查：
 
 ## 已知限制
 
-- 没有按资产配置独立 price heartbeat。
 - 有坏账记录，但没有单独的 recapitalization、auction 或 reserve withdraw 管理流程。
 - 没有接入真实 Chainlink feed 地址。
-- 没有 governance timelock。
+- 没有 governance timelock。当前 owner 权限适合项目展示，不适合作为生产治理模型。
 - 没有 reentrancy guard。当前 mock ERC20 不会 callback，但生产级集成应该加。
 - 单次清算只能选择一种抵押资产。
 - 没有针对深度资不抵债账户的动态 close factor。
@@ -78,7 +90,7 @@ Invariant 测试检查：
 
 债务只使用 MockUSDC 计价。这样可以避免多债务资产的加权计算，让健康因子逻辑聚焦在抵押资产风险和 base asset pool 会计上。
 
-Oracle 是 Chainlink-style mock。这样测试是确定性的，同时仍然覆盖 feed decimals、stale price 和 invalid price。
+Oracle 是 Chainlink-style mock。这样测试是确定性的，同时仍然覆盖 feed decimals、stale price、asset heartbeat 和 invalid price。
 
 `lock()` 函数用于在 invariant 测试和固定参数部署场景里冻结管理面。它不是生产级治理方案，生产环境应该使用 timelock、多签和完整权限管理。
 
