@@ -118,7 +118,7 @@ utilization > kink:
 
 ### V1.4：协议储备金和坏账处理
 
-状态：已完成。Reserve factor 和 bad debt accounting 都已完成。
+状态：已完成。Reserve factor、reserve withdraw、bad debt accounting 和 bad debt recapitalization 都已完成。
 
 目标：从“能清算”升级成“协议能处理坏账”。
 
@@ -140,6 +140,8 @@ supplierInterest = borrowInterest - reserveIncrease
 要讲清楚的问题：
 
 - reserve 是协议吸收坏账的第一层缓冲。
+- reserve withdraw 只能提取已经落账且有现金支持的储备金。
+- recapitalization 允许外部资金注入 USDC，降低已记录坏账。
 - 如果抵押品暴跌，清算奖励可能不足以覆盖全部债务。
 - bad debt 应该被记录，而不是静默忽略。
 
@@ -203,7 +205,7 @@ uint256 public badDebtUSDC;
 - eMode：相关性强的资产使用更高 collateral factor。
 - 更完整的参数治理延迟和多签流程。
 
-下一步建议优先做 reserve withdraw 或 bad debt recapitalization。它们能补齐风险管理里的“协议收入管理”和“坏账处理”两个常见面试追问点。
+下一步建议优先做 auction。它能补齐风险管理里的“抵押品处置”和“坏账回收效率”两个常见面试追问点。
 
 ### V1.7：Keeper 和 fork test
 
@@ -227,7 +229,7 @@ uint256 public badDebtUSDC;
 
 推荐表述：
 
-> 基于 Solidity 和 Foundry 实现 Aave 风格风险模型与 Compound III 风格单一借款资产架构的迷你借贷协议，支持多抵押资产、MockUSDC 供应池、MockUSDC 借款、健康因子、预言机定价、按资产配置 price heartbeat、borrow/supply index、utilization kink rate、supply cap、global borrow cap、isolation mode、pause/freeze 应急控制、协议储备金、close factor、直接清算、absorb/buyCollateral 两阶段清算、坏账记录、unit/fuzz/invariant 测试。
+> 基于 Solidity 和 Foundry 实现 Aave 风格风险模型与 Compound III 风格单一借款资产架构的迷你借贷协议，支持多抵押资产、MockUSDC 供应池、MockUSDC 借款、健康因子、预言机定价、按资产配置 price heartbeat、borrow/supply index、utilization kink rate、supply cap、global borrow cap、isolation mode、pause/freeze 应急控制、协议储备金提取、close factor、直接清算、absorb/buyCollateral 两阶段清算、坏账记录与再资本化、unit/fuzz/invariant 测试。
 
 面试时重点讲：
 

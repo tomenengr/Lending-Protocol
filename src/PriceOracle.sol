@@ -17,6 +17,7 @@ contract PriceOracle is IPriceOracle {
     event FeedSet(address indexed asset, address indexed feed);
     event StalePeriodSet(uint256 stalePeriod);
     event AssetHeartbeatSet(address indexed asset, uint256 heartbeat);
+    event OwnershipTransferred(address indexed previousOwner, address indexed newOwner);
 
     modifier onlyOwner() {
         require(msg.sender == owner, "ONLY_OWNER");
@@ -55,6 +56,7 @@ contract PriceOracle is IPriceOracle {
 
     function transferOwnership(address newOwner) external onlyOwner {
         require(newOwner != address(0), "ZERO_OWNER");
+        emit OwnershipTransferred(owner, newOwner);
         owner = newOwner;
     }
 
@@ -66,8 +68,11 @@ contract PriceOracle is IPriceOracle {
         IAggregatorV3 feed = feeds[asset];
         require(address(feed) != address(0), "NO_FEED");
 
-        (, int256 answer,, uint256 updatedAt,) = feed.latestRoundData();
+        (uint80 roundId, int256 answer, uint256 startedAt, uint256 updatedAt, uint80 answeredInRound) =
+            feed.latestRoundData();
         require(answer > 0, "INVALID_PRICE");
+        require(answeredInRound >= roundId, "STALE_PRICE");
+        require(startedAt <= updatedAt, "STALE_PRICE");
         require(updatedAt <= block.timestamp, "STALE_PRICE");
         require(block.timestamp - updatedAt <= _heartbeatFor(asset), "STALE_PRICE");
 

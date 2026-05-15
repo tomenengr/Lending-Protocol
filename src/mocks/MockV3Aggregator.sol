@@ -15,6 +15,11 @@ contract MockV3Aggregator is IAggregatorV3 {
     uint256 private _updatedAt;
     uint80 private _answeredInRound;
 
+    event AnswerUpdated(int256 indexed current, uint256 indexed roundId, uint256 updatedAt);
+    event NewRound(uint256 indexed roundId, address indexed startedBy, uint256 startedAt);
+    event OwnershipTransferred(address indexed previousOwner, address indexed newOwner);
+    event UpdaterSet(address indexed updater, bool allowed);
+
     constructor(uint8 decimals_, int256 initialAnswer) {
         decimals = decimals_;
         owner = msg.sender;
@@ -31,12 +36,14 @@ contract MockV3Aggregator is IAggregatorV3 {
         require(msg.sender == owner, "ONLY_OWNER");
         require(!locked, "LOCKED");
         isUpdater[updater] = allowed;
+        emit UpdaterSet(updater, allowed);
     }
 
     function transferOwnership(address newOwner) external {
         require(msg.sender == owner, "ONLY_OWNER");
         require(!locked, "LOCKED");
         require(newOwner != address(0), "ZERO_OWNER");
+        emit OwnershipTransferred(owner, newOwner);
         owner = newOwner;
     }
 
@@ -51,6 +58,8 @@ contract MockV3Aggregator is IAggregatorV3 {
         _startedAt = block.timestamp;
         _updatedAt = block.timestamp;
         _answeredInRound = _roundId;
+        emit NewRound(_roundId, msg.sender, _startedAt);
+        emit AnswerUpdated(newAnswer, _roundId, _updatedAt);
     }
 
     function updateRoundData(
@@ -65,6 +74,8 @@ contract MockV3Aggregator is IAggregatorV3 {
         _startedAt = startedAt;
         _updatedAt = updatedAt;
         _answeredInRound = answeredInRound;
+        emit NewRound(roundId, msg.sender, startedAt);
+        emit AnswerUpdated(answer, roundId, updatedAt);
     }
 
     function latestRoundData()

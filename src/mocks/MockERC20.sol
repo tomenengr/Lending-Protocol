@@ -15,6 +15,8 @@ contract MockERC20 is IERC20Metadata {
     mapping(address account => uint256 balance) public balanceOf;
     mapping(address owner => mapping(address spender => uint256 amount)) public allowance;
 
+    event OwnershipTransferred(address indexed previousOwner, address indexed newOwner);
+
     constructor(string memory name_, string memory symbol_, uint8 decimals_) {
         name = name_;
         symbol = symbol_;
@@ -30,6 +32,7 @@ contract MockERC20 is IERC20Metadata {
 
     function transferOwnership(address newOwner) external onlyOwner {
         require(newOwner != address(0), "ZERO_OWNER");
+        emit OwnershipTransferred(owner, newOwner);
         owner = newOwner;
     }
 

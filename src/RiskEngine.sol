@@ -31,6 +31,7 @@ contract RiskEngine {
         bool isolated,
         bool enabled
     );
+    event OwnershipTransferred(address indexed previousOwner, address indexed newOwner);
 
     modifier onlyOwner() {
         require(msg.sender == owner, "ONLY_OWNER");
@@ -53,6 +54,7 @@ contract RiskEngine {
 
     function transferOwnership(address newOwner) external onlyOwner {
         require(newOwner != address(0), "ZERO_OWNER");
+        emit OwnershipTransferred(owner, newOwner);
         owner = newOwner;
     }
 

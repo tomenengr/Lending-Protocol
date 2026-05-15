@@ -37,8 +37,8 @@ contract MiniLending {
     mapping(address asset => bool frozen) public assetFrozen;
 
     IERC20Metadata public immutable usdc;
-    IPriceOracle public oracle;
-    RiskEngine public riskEngine;
+    IPriceOracle public immutable oracle;
+    RiskEngine public immutable riskEngine;
     address public owner;
     bool public paused;
 
@@ -64,6 +64,8 @@ contract MiniLending {
     event CollateralPurchased(
         address indexed buyer, address indexed collateralAsset, uint256 paidUSDC, uint256 collateralPurchased
     );
+    event ReservesWithdrawn(address indexed recipient, uint256 amountUSDC);
+    event BadDebtRecapitalized(address indexed payer, uint256 amountUSDC);
     event OwnershipTransferred(address indexed previousOwner, address indexed newOwner);
     event PausedSet(bool paused);
     event AssetFrozenSet(address indexed asset, bool frozen);
@@ -279,8 +281,9 @@ contract MiniLending {
         uint256 borrowerDebt = debtUSDC(borrower);
         require(borrowerDebt > 0, "NO_DEBT");
 
-        uint256 discountedCollateralValueUsd;
-        for (uint256 i = 0; i < collateralAssets.length; i++) {
+        uint256 discountedCollateralValueUsd = 0;
+        uint256 assetsLength = collateralAssets.length;
+        for (uint256 i = 0; i < assetsLength; i++) {
             address asset = collateralAssets[i];
             uint256 balance = collateralBalance[borrower][asset];
             if (balance == 0) {
@@ -297,7 +300,7 @@ contract MiniLending {
         }
 
         uint256 borrowerDebtUsd = _debtToUsd(borrowerDebt);
-        uint256 badDebtRecognized;
+        uint256 badDebtRecognized = 0;
         if (borrowerDebtUsd > discountedCollateralValueUsd) {
             badDebtRecognized = _usdToDebtRoundUp(borrowerDebtUsd - discountedCollateralValueUsd);
             _recognizeBadDebt(badDebtRecognized);
@@ -335,11 +338,37 @@ contract MiniLending {
         emit CollateralPurchased(msg.sender, collateralAsset, amountUSDC, collateralToBuy);
     }
 
+    function withdrawReserves(address recipient, uint256 amountUSDC) external onlyOwner {
+        require(recipient != address(0), "ZERO_RECIPIENT");
+        require(amountUSDC > 0, "ZERO_AMOUNT");
+        accrueInterest();
+        require(amountUSDC <= protocolReservesUSDC, "INSUFFICIENT_RESERVES");
+        require(usdc.balanceOf(address(this)) >= amountUSDC, "INSUFFICIENT_RESERVE_CASH");
+
+        protocolReservesUSDC -= amountUSDC;
+
+        require(usdc.transfer(recipient, amountUSDC), "TRANSFER_FAILED");
+        emit ReservesWithdrawn(recipient, amountUSDC);
+    }
+
+    function recapitalizeBadDebt(uint256 amountUSDC) external {
+        require(amountUSDC > 0, "ZERO_AMOUNT");
+        accrueInterest();
+        uint256 badDebt = badDebtUSDC;
+        require(badDebt > 0, "NO_BAD_DEBT");
+
+        uint256 actualAmount = amountUSDC > badDebt ? badDebt : amountUSDC;
+        badDebtUSDC = badDebt - actualAmount;
+
+        require(usdc.transferFrom(msg.sender, address(this), actualAmount), "TRANSFER_FAILED");
+        emit BadDebtRecapitalized(msg.sender, actualAmount);
+    }
+
     function accrueInterest() public {
         uint256 newBorrowIndex = getCurrentBorrowIndex();
         uint256 newSupplyIndex = getCurrentSupplyIndex();
-        uint256 interestAccrued;
-        uint256 reservesAccrued;
+        uint256 interestAccrued = 0;
+        uint256 reservesAccrued = 0;
 
         if (newBorrowIndex > borrowIndex && totalBorrowPrincipal > 0) {
             interestAccrued = totalBorrowPrincipal * (newBorrowIndex - borrowIndex) / WAD;
@@ -438,10 +467,11 @@ contract MiniLending {
         view
         returns (uint256 totalCollateralUsd, uint256 borrowableUsd, uint256 debtUsd, uint256 healthFactor)
     {
-        uint256 adjustedCollateralUsd;
+        uint256 adjustedCollateralUsd = 0;
         uint256 isolationDebtCeilingUsd = type(uint256).max;
 
-        for (uint256 i = 0; i < collateralAssets.length; i++) {
+        uint256 assetsLength = collateralAssets.length;
+        for (uint256 i = 0; i < assetsLength; i++) {
             address asset = collateralAssets[i];
             uint256 balance = collateralBalance[user][asset];
             if (balance == 0) {
@@ -481,7 +511,8 @@ contract MiniLending {
         internal
         view
     {
-        for (uint256 i = 0; i < collateralAssets.length; i++) {
+        uint256 assetsLength = collateralAssets.length;
+        for (uint256 i = 0; i < assetsLength; i++) {
             address asset = collateralAssets[i];
             if (asset == depositAsset || collateralBalance[user][asset] == 0) {
                 continue;
@@ -493,7 +524,8 @@ contract MiniLending {
     }
 
     function _requireNoFrozenCollateral(address user) internal view {
-        for (uint256 i = 0; i < collateralAssets.length; i++) {
+        uint256 assetsLength = collateralAssets.length;
+        for (uint256 i = 0; i < assetsLength; i++) {
             address asset = collateralAssets[i];
             if (assetFrozen[asset] && collateralBalance[user][asset] > 0) {
                 revert("FROZEN_COLLATERAL");

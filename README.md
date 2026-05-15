@@ -5,7 +5,7 @@
 - Aave 风格：健康因子、清算阈值、清算奖励、permissionless liquidation。
 - Compound III 风格：多抵押资产、单一借款资产 MockUSDC、base asset pool、absorb / buyCollateral 两阶段清算。
 
-当前版本支持 WETH/WBTC 抵押、MockUSDC 供应池、MockUSDC 借款、还款、赎回、Chainlink-style mock oracle、按资产配置 price heartbeat、健康因子、borrow/supply index 利息累计、supply cap、global borrow cap、isolation mode、全局 pause、资产 freeze、close factor、清算奖励、协议吸收坏仓位、折价出售协议抵押品、坏账记录、unit/fuzz/invariant 测试、CI 和部署脚本。
+当前版本支持 WETH/WBTC 抵押、MockUSDC 供应池、MockUSDC 借款、还款、赎回、Chainlink-style mock oracle、按资产配置 price heartbeat、健康因子、borrow/supply index 利息累计、supply cap、global borrow cap、isolation mode、全局 pause、资产 freeze、close factor、清算奖励、协议吸收坏仓位、折价出售协议抵押品、协议储备金提取、坏账再资本化、坏账记录、unit/fuzz/invariant 测试、CI 和部署脚本。
 
 ## 架构
 
@@ -41,6 +41,7 @@ flowchart LR
 - 供应者收益通过 `supplyIndex` 随借款利息累计。
 - 借款利率通过 utilization-based kink model 计算。
 - 协议收取 10% reserve factor 作为储备金。
+- owner 可以通过 `withdrawReserves` 提取已经落账且有现金支持的协议储备金。
 - 协议可以计算 base asset pool utilization。
 - 当账户健康因子低于 `1e18` 时，第三方可以发起清算。
 - 每次清算最多偿还当前债务的 50%。
@@ -48,6 +49,8 @@ flowchart LR
 - 协议可以通过 `absorb` 吸收不健康账户，把债务清零并把抵押品转入协议账本。
 - 第三方可以通过 `buyCollateral` 用 MockUSDC 折价购买协议持有的抵押品。
 - 当折价抵押品不足以覆盖债务时，协议会优先使用 reserves，再记录 `badDebtUSDC`。
+- 任何地址都可以通过 `recapitalizeBadDebt` 注入 MockUSDC，降低已记录坏账。
+- 提取储备金会同步减少 `protocolReservesUSDC` 和协议 USDC cash，不会降低供应者可用流动性。
 - pause 状态下仍允许 `repay`、`liquidate` 和 `absorb`，方便风险收敛。
 - asset freeze 不阻止 `repay`、`withdrawCollateral` 和 `liquidate`，避免冻结资产后用户无法降低风险。
 - Oracle 价格统一转换成 `1e18` 精度。
@@ -230,6 +233,8 @@ test/
   MiniLending.caps.t.sol
   MiniLending.isolation.t.sol
   MiniLending.pause.t.sol
+  MiniLending.recapitalization.t.sol
+  MiniLending.reserve.t.sol
   MiniLending.supply.t.sol
   MiniLending.interest.t.sol
   MiniLending.rate.t.sol
@@ -251,25 +256,33 @@ docs/
 当前测试体系：
 
 ```text
-Unit tests: deposit / supply / borrow / repay / withdraw / liquidation / absorb / buyCollateral / caps / isolation / pause / freeze / interest / rate / oracle
+Unit tests: deposit / supply / borrow / repay / withdraw / liquidation / absorb / buyCollateral / caps / isolation / pause / freeze / reserve withdraw / bad debt recapitalization / interest / rate / oracle
 Fuzz tests: borrow limit / liquidation amount / price movement / decimal handling
 Invariant tests: collateral accounting / base pool solvency / debt accounting / healthy liquidation rejection / health factor constraints
+```
+
+静态分析：
+
+```text
+slither .
+已运行并记录结果；当前剩余项为精度取整、timestamp、有限资产数组循环外部只读调用和 reentrancy-events 等设计性提示。
+详见 docs/audit-notes.md。
 ```
 
 本地测试结果：
 
 ```text
 forge test
-153 tests passed, 0 failed
+173 tests passed, 0 failed
 ```
 
 覆盖率结果：
 
 ```text
 forge coverage
-Total line coverage: 89.23%
-Total statement coverage: 89.77%
-Total function coverage: 92.45%
+Total line coverage: 88.62%
+Total statement coverage: 89.16%
+Total function coverage: 92.59%
 ```
 
 ## 运行方式
@@ -298,7 +311,7 @@ forge script script/Deploy.s.sol
 - 没有 aToken/cToken 形式的凭证 token。
 - 没有闪电贷。
 - 没有治理和 timelock，当前只保留 owner 管理的 pause/freeze。
-- 坏账只做 accounting，没有单独的 recapitalization、auction 或 reserve withdraw 管理流程。
+- 没有抵押品 auction 管理流程。
 - 没有前端。
 - 没有真实 Chainlink feed 地址。
 
@@ -308,7 +321,7 @@ forge script script/Deploy.s.sol
 
 优先级建议：
 
-1. 加入 reserve withdraw、bad debt recapitalization 或 auction 模块。
+1. 加入抵押品 auction 模块。
 2. 增加 keeper 脚本，自动扫描 HF < 1 的账户并执行 liquidate 或 absorb。
 3. 增加 fork test，读取真实 Chainlink feed 并验证 decimals / stale period。
 4. 增加更完整的治理延迟和参数变更流程。

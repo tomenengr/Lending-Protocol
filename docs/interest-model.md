@@ -98,8 +98,28 @@ lastAccrualTimestamp = block.timestamp
 ## 当前简化
 
 - reserve factor 固定为 10%，不能动态调整。
-- 没有 supplier reserve shares，也没有单独 reserve withdraw 管理接口。
+- 没有 supplier reserve shares。
 - 没有区分 stable/variable debt。
+
+## 储备金提取
+
+`withdrawReserves(recipient, amountUSDC)` 允许 owner 提取已经落账的协议储备金：
+
+```text
+amountUSDC <= protocolReservesUSDC
+usdc.balanceOf(lending) >= amountUSDC
+```
+
+第二个条件很重要。`protocolReservesUSDC` 是会计储备金，利息可能已经累积到债务里，但 borrower 还没有还款，协议未必已经收到对应 USDC cash。只有在现金足够时，owner 才能提取。
+
+提取会同时减少：
+
+```text
+protocolReservesUSDC
+USDC cash
+```
+
+因此 `getAvailableLiquidity()` 不会因为储备金提取而下降。
 
 ## 坏账处理
 
@@ -109,3 +129,13 @@ badDebt = max(debtValue - discountedCollateralValue, 0)
 ```
 
 `absorb` 会先用 `protocolReservesUSDC` 抵扣坏账，不足部分记录到 `badDebtUSDC`。这里使用折价可回收价值，而不是抵押品市场价值，因为协议后续会通过 `buyCollateral` 按 liquidation bonus 折价出售协议持有的抵押品。
+
+记录坏账后，任何地址都可以调用 `recapitalizeBadDebt(amountUSDC)` 注入 MockUSDC：
+
+```text
+actualAmount = min(amountUSDC, badDebtUSDC)
+badDebtUSDC -= actualAmount
+USDC cash += actualAmount
+```
+
+这个设计让坏账从“只记录”变成“可修复”。它仍然保持简化：没有发行 recapitalization shares，也没有复杂 auction，只验证再注资对协议偿付能力的影响。
