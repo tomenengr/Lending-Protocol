@@ -20,8 +20,7 @@ contract PriceOracle is IPriceOracle {
     event OwnershipTransferred(address indexed previousOwner, address indexed newOwner);
 
     modifier onlyOwner() {
-        require(msg.sender == owner, "ONLY_OWNER");
-        require(!locked, "LOCKED");
+        _onlyOwner();
         _;
     }
 
@@ -76,6 +75,8 @@ contract PriceOracle is IPriceOracle {
         require(updatedAt <= block.timestamp, "STALE_PRICE");
         require(block.timestamp - updatedAt <= _heartbeatFor(asset), "STALE_PRICE");
 
+        // casting to uint256 is safe because answer is required to be positive above.
+        // forge-lint: disable-next-line(unsafe-typecast)
         return _scaleToE18(uint256(answer), feed.decimals());
     }
 
@@ -99,5 +100,10 @@ contract PriceOracle is IPriceOracle {
     function _heartbeatFor(address asset) internal view returns (uint256) {
         uint256 heartbeat = assetHeartbeat[asset];
         return heartbeat == 0 ? stalePeriod : heartbeat;
+    }
+
+    function _onlyOwner() internal view {
+        require(msg.sender == owner, "ONLY_OWNER");
+        require(!locked, "LOCKED");
     }
 }

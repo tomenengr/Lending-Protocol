@@ -62,12 +62,12 @@ contract MiniLendingHandler is StdInvariant {
             return;
         }
 
-        uint256 availableUSDC = (borrowableUsd - debtUsd) * 1e6 / 1e18;
-        if (availableUSDC == 0) {
+        uint256 availableUsdc = (borrowableUsd - debtUsd) * 1e6 / 1e18;
+        if (availableUsdc == 0) {
             return;
         }
 
-        uint256 amount = bound(amountSeed, 1, availableUSDC);
+        uint256 amount = bound(amountSeed, 1, availableUsdc);
         vm.prank(actor);
         lending.borrow(amount);
         totalDebtGhost += amount;
@@ -76,7 +76,7 @@ contract MiniLendingHandler is StdInvariant {
 
     function repay(uint256 actorSeed, uint256 amountSeed) external {
         address actor = _actor(actorSeed);
-        uint256 debt = lending.debtUSDC(actor);
+        uint256 debt = lending.debtUsdc(actor);
         if (debt == 0) {
             return;
         }
@@ -105,7 +105,7 @@ contract MiniLendingHandler is StdInvariant {
 
     function withdrawBase(uint256 actorSeed, uint256 amountSeed) external {
         address actor = _actor(actorSeed);
-        uint256 supplied = lending.suppliedUSDC(actor);
+        uint256 supplied = lending.suppliedUsdc(actor);
         if (supplied == 0) {
             return;
         }
@@ -155,7 +155,7 @@ contract MiniLendingHandler is StdInvariant {
 
     function liquidateWeth(uint256 borrowerSeed, uint256 repaySeed) external {
         address borrower = _actor(borrowerSeed);
-        uint256 debt = lending.debtUSDC(borrower);
+        uint256 debt = lending.debtUsdc(borrower);
         if (debt < 2) {
             return;
         }
@@ -190,7 +190,7 @@ contract MiniLendingHandler is StdInvariant {
     }
 
     function _recordRiskAction(address actor) internal {
-        if (lending.debtUSDC(actor) > 0 && lending.getHealthFactor(actor) < MIN_HEALTH_FACTOR) {
+        if (lending.debtUsdc(actor) > 0 && lending.getHealthFactor(actor) < MIN_HEALTH_FACTOR) {
             unhealthyRiskActions += 1;
         }
     }
@@ -298,7 +298,7 @@ contract MiniLendingInvariantTest is StdInvariant {
         uint256 debtSum;
 
         for (uint256 i = 0; i < actors.length; i++) {
-            debtSum += lending.debtUSDC(actors[i]);
+            debtSum += lending.debtUsdc(actors[i]);
         }
 
         assertGe(debtSum, handler.totalDebtGhost());
@@ -306,21 +306,21 @@ contract MiniLendingInvariantTest is StdInvariant {
 
     function invariant_basePoolAssetsCoverSupplierClaims() public view {
         uint256 cash = usdc.balanceOf(address(lending));
-        uint256 borrowed = lending.totalBorrowedUSDC();
-        uint256 discountedProtocolCollateral = _discountedProtocolCollateralUSDC();
-        uint256 supplied = lending.totalSuppliedUSDC();
-        uint256 reserves = lending.protocolReservesUSDC();
+        uint256 borrowed = lending.totalBorrowedUsdc();
+        uint256 discountedProtocolCollateral = _discountedProtocolCollateralUsdc();
+        uint256 supplied = lending.totalSuppliedUsdc();
+        uint256 reserves = lending.protocolReservesUsdc();
         uint256 assets = cash + borrowed + discountedProtocolCollateral;
         uint256 liabilities = supplied + reserves;
 
         if (assets < liabilities) {
-            assertLe(liabilities - assets, lending.badDebtUSDC());
+            assertLe(liabilities - assets, lending.badDebtUsdc());
         } else {
             assertGe(assets, liabilities);
         }
     }
 
-    function _discountedProtocolCollateralUSDC() internal view returns (uint256) {
+    function _discountedProtocolCollateralUsdc() internal view returns (uint256) {
         uint256 wethValue = lending.protocolCollateralBalance(address(weth)) * 3_000e6 / 1 ether;
         uint256 wbtcValue = lending.protocolCollateralBalance(address(wbtc)) * 60_000e6 / 1e8;
 

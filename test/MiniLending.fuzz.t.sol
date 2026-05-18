@@ -18,21 +18,21 @@ contract MiniLendingFuzzTest is MiniLendingTestBase {
         assertEq(borrowableUsd, expectedBorrowableUsd);
     }
 
-    function testFuzz_BorrowCannotExceedLimit(uint256 collateralAmount, uint256 borrowAmountUSDC) public {
+    function testFuzz_BorrowCannotExceedLimit(uint256 collateralAmount, uint256 borrowAmountUsdc) public {
         collateralAmount = bound(collateralAmount, 0.01 ether, 100 ether);
         _depositWeth(alice, collateralAmount);
 
         (, uint256 borrowableUsd,,) = lending.getAccountData(alice);
-        uint256 maxBorrowUSDC = borrowableUsd * 1e6 / 1e18;
-        borrowAmountUSDC = bound(borrowAmountUSDC, 1, maxBorrowUSDC + 1_000e6);
+        uint256 maxBorrowUsdc = borrowableUsd * 1e6 / 1e18;
+        borrowAmountUsdc = bound(borrowAmountUsdc, 1, maxBorrowUsdc + 1_000e6);
 
         vm.prank(alice);
-        if (borrowAmountUSDC > maxBorrowUSDC) {
+        if (borrowAmountUsdc > maxBorrowUsdc) {
             vm.expectRevert(bytes("BORROW_LIMIT_EXCEEDED"));
-            lending.borrow(borrowAmountUSDC);
+            lending.borrow(borrowAmountUsdc);
         } else {
-            lending.borrow(borrowAmountUSDC);
-            assertEq(lending.debtUSDC(alice), borrowAmountUSDC);
+            lending.borrow(borrowAmountUsdc);
+            assertEq(lending.debtUsdc(alice), borrowAmountUsdc);
         }
     }
 
@@ -66,7 +66,7 @@ contract MiniLendingFuzzTest is MiniLendingTestBase {
         usdc.approve(address(lending), 1_000e6);
         if (lending.getHealthFactor(alice) < 1e18) {
             lending.liquidate(alice, address(weth), 1_000e6);
-            assertEq(lending.debtUSDC(alice), 1_000e6);
+            assertEq(lending.debtUsdc(alice), 1_000e6);
         } else {
             vm.expectRevert(bytes("POSITION_HEALTHY"));
             lending.liquidate(alice, address(weth), 1_000e6);
@@ -74,11 +74,11 @@ contract MiniLendingFuzzTest is MiniLendingTestBase {
         vm.stopPrank();
     }
 
-    function testFuzz_LiquidationBonusCalculation(uint256 repayAmountUSDC, uint256 collateralPriceUsd) public view {
-        repayAmountUSDC = bound(repayAmountUSDC, 1e6, 10_000e6);
+    function testFuzz_LiquidationBonusCalculation(uint256 repayAmountUsdc, uint256 collateralPriceUsd) public view {
+        repayAmountUsdc = bound(repayAmountUsdc, 1e6, 10_000e6);
         collateralPriceUsd = bound(collateralPriceUsd, 500, 10_000);
 
-        uint256 repayValueUsd = repayAmountUSDC * 1e18 / 1e6;
+        uint256 repayValueUsd = repayAmountUsdc * 1e18 / 1e6;
         uint256 expectedSeizeAmount = repayValueUsd * 11_000 / BPS * 1e18 / (collateralPriceUsd * 1e18);
 
         uint256 actualSeizeAmount =
@@ -87,12 +87,12 @@ contract MiniLendingFuzzTest is MiniLendingTestBase {
         assertEq(actualSeizeAmount, expectedSeizeAmount);
     }
 
-    function testFuzz_DebtValueUsesUSDCDecimals(uint256 amountUSDC) public {
-        amountUSDC = bound(amountUSDC, 1e6, 2_250e6);
+    function testFuzz_DebtValueUsesUSDCDecimals(uint256 amountUsdc) public {
+        amountUsdc = bound(amountUsdc, 1e6, 2_250e6);
         _depositWeth(alice, 1 ether);
-        _borrow(alice, amountUSDC);
+        _borrow(alice, amountUsdc);
 
         (,, uint256 debtUsd,) = lending.getAccountData(alice);
-        assertEq(debtUsd, amountUSDC * 1e18 / 1e6);
+        assertEq(debtUsd, amountUsdc * 1e18 / 1e6);
     }
 }

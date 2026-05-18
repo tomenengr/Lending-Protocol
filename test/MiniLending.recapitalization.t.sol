@@ -4,7 +4,7 @@ pragma solidity ^0.8.24;
 import {MiniLendingTestBase} from "./helpers/MiniLendingTestBase.sol";
 
 contract MiniLendingRecapitalizationTest is MiniLendingTestBase {
-    event BadDebtRecapitalized(address indexed payer, uint256 amountUSDC);
+    event BadDebtRecapitalized(address indexed payer, uint256 amountUsdc);
 
     function test_recapitalizeBadDebtPartial() public {
         uint256 badDebt = _createBadDebt();
@@ -12,7 +12,7 @@ contract MiniLendingRecapitalizationTest is MiniLendingTestBase {
 
         _recapitalize(bob, amount);
 
-        assertEq(lending.badDebtUSDC(), badDebt - amount);
+        assertEq(lending.badDebtUsdc(), badDebt - amount);
     }
 
     function test_recapitalizeBadDebtFull() public {
@@ -20,7 +20,7 @@ contract MiniLendingRecapitalizationTest is MiniLendingTestBase {
 
         _recapitalize(bob, badDebt);
 
-        assertEq(lending.badDebtUSDC(), 0);
+        assertEq(lending.badDebtUsdc(), 0);
     }
 
     function test_recapitalizeMoreThanBadDebtOnlyTakesBadDebt() public {
@@ -29,7 +29,7 @@ contract MiniLendingRecapitalizationTest is MiniLendingTestBase {
 
         _recapitalize(bob, badDebt + 1_000e6);
 
-        assertEq(lending.badDebtUSDC(), 0);
+        assertEq(lending.badDebtUsdc(), 0);
         assertEq(usdc.balanceOf(bob), bobBefore - badDebt);
     }
 
@@ -58,7 +58,7 @@ contract MiniLendingRecapitalizationTest is MiniLendingTestBase {
 
         _recapitalize(alice, badDebt);
 
-        assertEq(lending.badDebtUSDC(), 0);
+        assertEq(lending.badDebtUsdc(), 0);
     }
 
     function test_recapitalizeAllowedWhilePaused() public {
@@ -67,7 +67,7 @@ contract MiniLendingRecapitalizationTest is MiniLendingTestBase {
 
         _recapitalize(bob, badDebt);
 
-        assertEq(lending.badDebtUSDC(), 0);
+        assertEq(lending.badDebtUsdc(), 0);
     }
 
     function test_revertRecapitalizeZeroAmount() public {
@@ -96,14 +96,14 @@ contract MiniLendingRecapitalizationTest is MiniLendingTestBase {
         _prepareAliceLiquidatable();
         lending.absorb(alice);
 
-        badDebt = lending.badDebtUSDC();
+        badDebt = lending.badDebtUsdc();
         assertGt(badDebt, 0);
     }
 
-    function _recapitalize(address payer, uint256 amountUSDC) internal {
+    function _recapitalize(address payer, uint256 amountUsdc) internal {
         vm.startPrank(payer);
-        usdc.approve(address(lending), amountUSDC);
-        lending.recapitalizeBadDebt(amountUSDC);
+        usdc.approve(address(lending), amountUsdc);
+        lending.recapitalizeBadDebt(amountUsdc);
         vm.stopPrank();
     }
 }

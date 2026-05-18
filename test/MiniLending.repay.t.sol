@@ -4,7 +4,7 @@ pragma solidity ^0.8.24;
 import {MiniLendingTestBase} from "./helpers/MiniLendingTestBase.sol";
 
 contract MiniLendingRepayTest is MiniLendingTestBase {
-    event Repaid(address indexed user, uint256 amountUSDC);
+    event Repaid(address indexed user, uint256 amountUsdc);
 
     function setUp() public override {
         super.setUp();
@@ -15,20 +15,20 @@ contract MiniLendingRepayTest is MiniLendingTestBase {
     function test_repayPartialDebt() public {
         _repay(alice, 500e6);
 
-        assertEq(lending.debtUSDC(alice), 1_500e6);
+        assertEq(lending.debtUsdc(alice), 1_500e6);
     }
 
     function test_repayFullDebt() public {
         _repay(alice, 2_000e6);
 
-        assertEq(lending.debtUSDC(alice), 0);
+        assertEq(lending.debtUsdc(alice), 0);
     }
 
     function test_repayMoreThanDebtOnlyTakesDebt() public {
         uint256 aliceBefore = usdc.balanceOf(alice);
         _repay(alice, 3_000e6);
 
-        assertEq(lending.debtUSDC(alice), 0);
+        assertEq(lending.debtUsdc(alice), 0);
         assertEq(usdc.balanceOf(alice), aliceBefore - 2_000e6);
     }
 
@@ -64,7 +64,7 @@ contract MiniLendingRepayTest is MiniLendingTestBase {
         _repay(alice, 400e6);
         _repay(alice, 600e6);
 
-        assertEq(lending.debtUSDC(alice), 1_000e6);
+        assertEq(lending.debtUsdc(alice), 1_000e6);
     }
 
     function test_repayEmitsEvent() public {

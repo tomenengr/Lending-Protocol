@@ -34,8 +34,7 @@ contract RiskEngine {
     event OwnershipTransferred(address indexed previousOwner, address indexed newOwner);
 
     modifier onlyOwner() {
-        require(msg.sender == owner, "ONLY_OWNER");
-        require(!locked, "LOCKED");
+        _onlyOwner();
         _;
     }
 
@@ -129,5 +128,10 @@ contract RiskEngine {
     function _requireEnabled(address asset) internal view returns (RiskConfig memory config) {
         config = _riskConfigs[asset];
         require(config.enabled, "UNSUPPORTED_ASSET");
+    }
+
+    function _onlyOwner() internal view {
+        require(msg.sender == owner, "ONLY_OWNER");
+        require(!locked, "LOCKED");
     }
 }

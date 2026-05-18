@@ -99,7 +99,7 @@ contract MiniLendingPauseTest is MiniLendingTestBase {
 
         _repay(alice, 500e6);
 
-        assertEq(lending.debtUSDC(alice), 500e6);
+        assertEq(lending.debtUsdc(alice), 500e6);
     }
 
     function test_liquidateAllowedWhilePaused() public {
@@ -111,7 +111,7 @@ contract MiniLendingPauseTest is MiniLendingTestBase {
         lending.liquidate(alice, address(weth), 1_000e6);
         vm.stopPrank();
 
-        assertEq(lending.debtUSDC(alice), 1_000e6);
+        assertEq(lending.debtUsdc(alice), 1_000e6);
         assertEq(lending.collateralBalance(alice, address(weth)), 0.45 ether);
     }
 
@@ -121,7 +121,7 @@ contract MiniLendingPauseTest is MiniLendingTestBase {
 
         lending.absorb(alice);
 
-        assertEq(lending.debtUSDC(alice), 0);
+        assertEq(lending.debtUsdc(alice), 0);
         assertEq(lending.protocolCollateralBalance(address(weth)), 1 ether);
     }
 
@@ -173,7 +173,7 @@ contract MiniLendingPauseTest is MiniLendingTestBase {
         vm.prank(alice);
         lending.withdrawCollateral(address(weth), 1 ether);
 
-        assertEq(lending.debtUSDC(alice), 0);
+        assertEq(lending.debtUsdc(alice), 0);
         assertEq(lending.collateralBalance(alice, address(weth)), 0);
     }
 
@@ -186,6 +186,6 @@ contract MiniLendingPauseTest is MiniLendingTestBase {
         lending.liquidate(alice, address(weth), 1_000e6);
         vm.stopPrank();
 
-        assertEq(lending.debtUSDC(alice), 1_000e6);
+        assertEq(lending.debtUsdc(alice), 1_000e6);
     }
 }

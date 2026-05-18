@@ -49,7 +49,7 @@ contract MiniLendingRateTest is MiniLendingTestBase {
 
         lending.accrueInterest();
 
-        assertEq(lending.protocolReservesUSDC(), expectedReserves);
+        assertEq(lending.protocolReservesUsdc(), expectedReserves);
     }
 
     function test_supplierGetsInterestNetOfReserveFactor() public {
@@ -77,9 +77,9 @@ contract MiniLendingRateTest is MiniLendingTestBase {
         _borrow(alice, 1_000e6);
 
         vm.warp(block.timestamp + 365 days);
-        uint256 debtAfterInterest = lending.debtUSDC(alice);
+        uint256 debtAfterInterest = lending.debtUsdc(alice);
         _repay(alice, debtAfterInterest);
 
-        assertEq(lending.getAvailableLiquidity(), usdc.balanceOf(address(lending)) - lending.protocolReservesUSDC());
+        assertEq(lending.getAvailableLiquidity(), usdc.balanceOf(address(lending)) - lending.protocolReservesUsdc());
     }
 }

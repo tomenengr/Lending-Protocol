@@ -5,10 +5,10 @@ import {MiniLendingTestBase} from "./helpers/MiniLendingTestBase.sol";
 
 contract MiniLendingAbsorbTest is MiniLendingTestBase {
     event Absorbed(
-        address indexed absorber, address indexed borrower, uint256 debtAbsorbedUSDC, uint256 badDebtRecognizedUSDC
+        address indexed absorber, address indexed borrower, uint256 debtAbsorbedUsdc, uint256 badDebtRecognizedUsdc
     );
     event CollateralPurchased(
-        address indexed buyer, address indexed collateralAsset, uint256 paidUSDC, uint256 collateralPurchased
+        address indexed buyer, address indexed collateralAsset, uint256 paidUsdc, uint256 collateralPurchased
     );
 
     function test_revertAbsorbHealthyPosition() public {
@@ -24,7 +24,7 @@ contract MiniLendingAbsorbTest is MiniLendingTestBase {
 
         lending.absorb(alice);
 
-        assertEq(lending.debtUSDC(alice), 0);
+        assertEq(lending.debtUsdc(alice), 0);
         assertEq(lending.collateralBalance(alice, address(weth)), 0);
         assertEq(lending.protocolCollateralBalance(address(weth)), 1 ether);
     }
@@ -36,7 +36,7 @@ contract MiniLendingAbsorbTest is MiniLendingTestBase {
 
         lending.absorb(alice);
 
-        assertEq(lending.badDebtUSDC(), expectedBadDebt);
+        assertEq(lending.badDebtUsdc(), expectedBadDebt);
     }
 
     function test_absorbUsesProtocolReservesBeforeRecordingBadDebt() public {
@@ -44,9 +44,9 @@ contract MiniLendingAbsorbTest is MiniLendingTestBase {
         _borrow(alice, 2_000e6);
 
         vm.warp(block.timestamp + 365 days);
-        uint256 debtBeforeAbsorb = lending.debtUSDC(alice);
+        uint256 debtBeforeAbsorb = lending.debtUsdc(alice);
         lending.accrueInterest();
-        uint256 reservesBefore = lending.protocolReservesUSDC();
+        uint256 reservesBefore = lending.protocolReservesUsdc();
 
         _setWethPrice(2_000);
         usdcFeed.updateAnswer(1e8);
@@ -57,8 +57,8 @@ contract MiniLendingAbsorbTest is MiniLendingTestBase {
 
         lending.absorb(alice);
 
-        assertEq(lending.badDebtUSDC(), expectedBadDebtAfterReserves);
-        assertEq(lending.protocolReservesUSDC(), 0);
+        assertEq(lending.badDebtUsdc(), expectedBadDebtAfterReserves);
+        assertEq(lending.protocolReservesUsdc(), 0);
     }
 
     function test_absorbEmitsEvent() public {

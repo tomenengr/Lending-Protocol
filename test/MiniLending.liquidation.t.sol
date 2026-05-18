@@ -8,7 +8,7 @@ contract MiniLendingLiquidationTest is MiniLendingTestBase {
         address indexed liquidator,
         address indexed borrower,
         address indexed collateralAsset,
-        uint256 repaidUSDC,
+        uint256 repaidUsdc,
         uint256 seizedCollateral
     );
 
@@ -31,7 +31,7 @@ contract MiniLendingLiquidationTest is MiniLendingTestBase {
         lending.liquidate(alice, address(weth), 1_000e6);
         vm.stopPrank();
 
-        assertEq(lending.debtUSDC(alice), 1_000e6);
+        assertEq(lending.debtUsdc(alice), 1_000e6);
     }
 
     function test_liquidatorRepaysDebt() public {
@@ -66,7 +66,7 @@ contract MiniLendingLiquidationTest is MiniLendingTestBase {
         lending.liquidate(alice, address(weth), 500e6);
         vm.stopPrank();
 
-        assertEq(lending.debtUSDC(alice), 1_500e6);
+        assertEq(lending.debtUsdc(alice), 1_500e6);
     }
 
     function test_liquidationReducesBorrowerCollateral() public {
@@ -90,7 +90,7 @@ contract MiniLendingLiquidationTest is MiniLendingTestBase {
         vm.stopPrank();
 
         assertEq(usdc.balanceOf(bob), bobBefore - 1_000e6);
-        assertEq(lending.debtUSDC(alice), 1_000e6);
+        assertEq(lending.debtUsdc(alice), 1_000e6);
         assertEq(lending.collateralBalance(alice, address(weth)), 0.45 ether);
     }
 

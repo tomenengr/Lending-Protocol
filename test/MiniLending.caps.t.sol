@@ -77,7 +77,7 @@ contract MiniLendingCapsTest is MiniLendingTestBase {
 
         _borrow(alice, lending.GLOBAL_BORROW_CAP_USDC());
 
-        assertEq(lending.totalBorrowedUSDC(), lending.GLOBAL_BORROW_CAP_USDC());
+        assertEq(lending.totalBorrowedUsdc(), lending.GLOBAL_BORROW_CAP_USDC());
     }
 
     function test_revertBorrowAboveGlobalBorrowCap() public {

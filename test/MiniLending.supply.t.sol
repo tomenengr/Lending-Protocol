@@ -4,21 +4,21 @@ pragma solidity ^0.8.24;
 import {MiniLendingTestBase} from "./helpers/MiniLendingTestBase.sol";
 
 contract MiniLendingSupplyTest is MiniLendingTestBase {
-    event BaseSupplied(address indexed user, uint256 amountUSDC);
-    event BaseWithdrawn(address indexed user, uint256 amountUSDC);
+    event BaseSupplied(address indexed user, uint256 amountUsdc);
+    event BaseWithdrawn(address indexed user, uint256 amountUsdc);
 
     function test_supplyBaseUpdatesUserBalance() public {
         uint256 amount = 1_000e6;
         _supplyBase(alice, amount);
 
-        assertEq(lending.suppliedUSDC(alice), amount);
+        assertEq(lending.suppliedUsdc(alice), amount);
     }
 
     function test_supplyBaseUpdatesTotalSupplied() public {
-        uint256 beforeTotal = lending.totalSuppliedUSDC();
+        uint256 beforeTotal = lending.totalSuppliedUsdc();
         _supplyBase(alice, 1_000e6);
 
-        assertEq(lending.totalSuppliedUSDC(), beforeTotal + 1_000e6);
+        assertEq(lending.totalSuppliedUsdc(), beforeTotal + 1_000e6);
     }
 
     function test_supplyBaseTransfersUSDCToProtocol() public {
@@ -49,7 +49,7 @@ contract MiniLendingSupplyTest is MiniLendingTestBase {
         vm.prank(alice);
         lending.withdrawBase(400e6);
 
-        assertEq(lending.suppliedUSDC(alice), 600e6);
+        assertEq(lending.suppliedUsdc(alice), 600e6);
     }
 
     function test_withdrawBaseFull() public {
@@ -58,7 +58,7 @@ contract MiniLendingSupplyTest is MiniLendingTestBase {
         vm.prank(alice);
         lending.withdrawBase(1_000e6);
 
-        assertEq(lending.suppliedUSDC(alice), 0);
+        assertEq(lending.suppliedUsdc(alice), 0);
     }
 
     function test_revertWithdrawBaseMoreThanSupplied() public {

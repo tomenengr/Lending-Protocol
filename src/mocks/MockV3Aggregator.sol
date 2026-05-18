@@ -4,7 +4,7 @@ pragma solidity ^0.8.24;
 import {IAggregatorV3} from "../interfaces/IAggregatorV3.sol";
 
 contract MockV3Aggregator is IAggregatorV3 {
-    uint8 public immutable decimals;
+    uint8 public immutable DECIMALS;
     address public owner;
     bool public locked;
     mapping(address updater => bool allowed) public isUpdater;
@@ -21,15 +21,18 @@ contract MockV3Aggregator is IAggregatorV3 {
     event UpdaterSet(address indexed updater, bool allowed);
 
     constructor(uint8 decimals_, int256 initialAnswer) {
-        decimals = decimals_;
+        DECIMALS = decimals_;
         owner = msg.sender;
         updateAnswer(initialAnswer);
     }
 
     modifier onlyUpdater() {
-        require(msg.sender == owner || isUpdater[msg.sender], "ONLY_UPDATER");
-        require(!locked, "LOCKED");
+        _onlyUpdater();
         _;
+    }
+
+    function decimals() external view returns (uint8) {
+        return DECIMALS;
     }
 
     function setUpdater(address updater, bool allowed) external {
@@ -84,5 +87,10 @@ contract MockV3Aggregator is IAggregatorV3 {
         returns (uint80 roundId, int256 answer, uint256 startedAt, uint256 updatedAt, uint80 answeredInRound)
     {
         return (_roundId, _answer, _startedAt, _updatedAt, _answeredInRound);
+    }
+
+    function _onlyUpdater() internal view {
+        require(msg.sender == owner || isUpdater[msg.sender], "ONLY_UPDATER");
+        require(!locked, "LOCKED");
     }
 }

@@ -4,7 +4,7 @@ pragma solidity ^0.8.24;
 import {MiniLendingTestBase} from "./helpers/MiniLendingTestBase.sol";
 
 contract MiniLendingReserveTest is MiniLendingTestBase {
-    event ReservesWithdrawn(address indexed recipient, uint256 amountUSDC);
+    event ReservesWithdrawn(address indexed recipient, uint256 amountUsdc);
 
     function test_withdrawReservesTransfersUSDCToRecipient() public {
         uint256 reserves = _generateCashBackedReserves();
@@ -13,7 +13,7 @@ contract MiniLendingReserveTest is MiniLendingTestBase {
         lending.withdrawReserves(address(this), reserves);
 
         assertEq(usdc.balanceOf(address(this)), ownerBefore + reserves);
-        assertEq(lending.protocolReservesUSDC(), 0);
+        assertEq(lending.protocolReservesUsdc(), 0);
     }
 
     function test_withdrawPartialReserves() public {
@@ -24,7 +24,7 @@ contract MiniLendingReserveTest is MiniLendingTestBase {
         lending.withdrawReserves(bob, withdrawAmount);
 
         assertEq(usdc.balanceOf(bob), bobBefore + withdrawAmount);
-        assertEq(lending.protocolReservesUSDC(), reserves - withdrawAmount);
+        assertEq(lending.protocolReservesUsdc(), reserves - withdrawAmount);
     }
 
     function test_withdrawReservesDoesNotReduceAvailableLiquidity() public {
@@ -82,7 +82,7 @@ contract MiniLendingReserveTest is MiniLendingTestBase {
         lending.accrueInterest();
 
         uint256 cash = usdc.balanceOf(address(lending));
-        uint256 reserves = lending.protocolReservesUSDC();
+        uint256 reserves = lending.protocolReservesUsdc();
         assertGt(reserves, cash);
 
         vm.expectRevert(bytes("INSUFFICIENT_RESERVE_CASH"));
@@ -95,7 +95,7 @@ contract MiniLendingReserveTest is MiniLendingTestBase {
 
         lending.withdrawReserves(bob, reserves);
 
-        assertEq(lending.protocolReservesUSDC(), 0);
+        assertEq(lending.protocolReservesUsdc(), 0);
     }
 
     function _generateCashBackedReserves() internal returns (uint256 reserves) {
@@ -103,10 +103,10 @@ contract MiniLendingReserveTest is MiniLendingTestBase {
         _borrow(alice, 1_000e6);
 
         vm.warp(block.timestamp + 365 days);
-        uint256 debtAfterInterest = lending.debtUSDC(alice);
+        uint256 debtAfterInterest = lending.debtUsdc(alice);
         _repay(alice, debtAfterInterest);
 
-        reserves = lending.protocolReservesUSDC();
+        reserves = lending.protocolReservesUsdc();
         assertGt(reserves, 0);
         assertGe(usdc.balanceOf(address(lending)), reserves);
     }

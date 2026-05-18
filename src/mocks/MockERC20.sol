@@ -6,7 +6,7 @@ import {IERC20Metadata} from "../interfaces/IERC20Metadata.sol";
 contract MockERC20 is IERC20Metadata {
     string public name;
     string public symbol;
-    uint8 public immutable decimals;
+    uint8 public immutable DECIMALS;
     uint256 public totalSupply;
     address public owner;
     address public transferOperator;
@@ -20,14 +20,17 @@ contract MockERC20 is IERC20Metadata {
     constructor(string memory name_, string memory symbol_, uint8 decimals_) {
         name = name_;
         symbol = symbol_;
-        decimals = decimals_;
+        DECIMALS = decimals_;
         owner = msg.sender;
     }
 
     modifier onlyOwner() {
-        require(msg.sender == owner, "ONLY_OWNER");
-        require(!locked, "LOCKED");
+        _onlyOwner();
         _;
+    }
+
+    function decimals() external view returns (uint8) {
+        return DECIMALS;
     }
 
     function transferOwnership(address newOwner) external onlyOwner {
@@ -92,5 +95,10 @@ contract MockERC20 is IERC20Metadata {
         balanceOf[from] -= amount;
         balanceOf[to] += amount;
         emit Transfer(from, to, amount);
+    }
+
+    function _onlyOwner() internal view {
+        require(msg.sender == owner, "ONLY_OWNER");
+        require(!locked, "LOCKED");
     }
 }

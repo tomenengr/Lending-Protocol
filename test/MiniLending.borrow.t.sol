@@ -4,7 +4,7 @@ pragma solidity ^0.8.24;
 import {MiniLendingTestBase} from "./helpers/MiniLendingTestBase.sol";
 
 contract MiniLendingBorrowTest is MiniLendingTestBase {
-    event Borrowed(address indexed user, uint256 amountUSDC);
+    event Borrowed(address indexed user, uint256 amountUsdc);
 
     function test_borrowWithinLimit() public {
         _depositWeth(alice, 1 ether);
@@ -31,7 +31,7 @@ contract MiniLendingBorrowTest is MiniLendingTestBase {
         _depositWeth(alice, 1 ether);
         _borrow(alice, 2_000e6);
 
-        assertEq(lending.debtUSDC(alice), 2_000e6);
+        assertEq(lending.debtUsdc(alice), 2_000e6);
     }
 
     function test_borrowTransfersUSDC() public {
@@ -56,7 +56,7 @@ contract MiniLendingBorrowTest is MiniLendingTestBase {
         _depositWeth(alice, 1 ether);
         _borrow(alice, 2_250e6);
 
-        assertEq(lending.debtUSDC(alice), 2_250e6);
+        assertEq(lending.debtUsdc(alice), 2_250e6);
         assertGt(lending.getHealthFactor(alice), 1e18);
     }
 
@@ -74,7 +74,7 @@ contract MiniLendingBorrowTest is MiniLendingTestBase {
         _depositWbtc(alice, 1e8);
         _borrow(alice, 20_000e6);
 
-        assertEq(lending.debtUSDC(alice), 20_000e6);
+        assertEq(lending.debtUsdc(alice), 20_000e6);
         assertEq(lending.getHealthFactor(alice), 60_000e18 * 7_500 / BPS * WAD / 20_000e18);
     }
 

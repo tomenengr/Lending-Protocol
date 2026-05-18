@@ -38,8 +38,14 @@ abstract contract MiniLendingTestBase is Test {
         wbtc = new MockERC20("Mock WBTC", "WBTC", 8);
         usdc = new MockERC20("Mock USDC", "USDC", 6);
 
+        // casting to int256 is safe because these test price constants are small positive values.
+        // forge-lint: disable-next-line(unsafe-typecast)
         wethFeed = new MockV3Aggregator(8, int256(WETH_PRICE * 1e8));
+        // casting to int256 is safe because these test price constants are small positive values.
+        // forge-lint: disable-next-line(unsafe-typecast)
         wbtcFeed = new MockV3Aggregator(8, int256(WBTC_PRICE * 1e8));
+        // casting to int256 is safe because these test price constants are small positive values.
+        // forge-lint: disable-next-line(unsafe-typecast)
         usdcFeed = new MockV3Aggregator(8, int256(USDC_PRICE * 1e8));
 
         address[] memory oracleAssets = new address[](3);
@@ -102,27 +108,27 @@ abstract contract MiniLendingTestBase is Test {
         _depositCollateral(user, wbtc, amount);
     }
 
-    function _borrow(address user, uint256 amountUSDC) internal {
+    function _borrow(address user, uint256 amountUsdc) internal {
         vm.prank(user);
-        lending.borrow(amountUSDC);
+        lending.borrow(amountUsdc);
     }
 
-    function _supplyBase(address user, uint256 amountUSDC) internal {
+    function _supplyBase(address user, uint256 amountUsdc) internal {
         vm.startPrank(user);
-        usdc.approve(address(lending), amountUSDC);
-        lending.supplyBase(amountUSDC);
+        usdc.approve(address(lending), amountUsdc);
+        lending.supplyBase(amountUsdc);
         vm.stopPrank();
     }
 
-    function _withdrawBase(address user, uint256 amountUSDC) internal {
+    function _withdrawBase(address user, uint256 amountUsdc) internal {
         vm.prank(user);
-        lending.withdrawBase(amountUSDC);
+        lending.withdrawBase(amountUsdc);
     }
 
-    function _repay(address user, uint256 amountUSDC) internal {
+    function _repay(address user, uint256 amountUsdc) internal {
         vm.startPrank(user);
-        usdc.approve(address(lending), amountUSDC);
-        lending.repay(amountUSDC);
+        usdc.approve(address(lending), amountUsdc);
+        lending.repay(amountUsdc);
         vm.stopPrank();
     }
 
@@ -133,10 +139,14 @@ abstract contract MiniLendingTestBase is Test {
     }
 
     function _setWethPrice(uint256 priceUsd) internal {
+        // casting to int256 is safe because fuzz callers bound prices to small positive values.
+        // forge-lint: disable-next-line(unsafe-typecast)
         wethFeed.updateAnswer(int256(priceUsd * 1e8));
     }
 
     function _setWbtcPrice(uint256 priceUsd) internal {
+        // casting to int256 is safe because fuzz callers bound prices to small positive values.
+        // forge-lint: disable-next-line(unsafe-typecast)
         wbtcFeed.updateAnswer(int256(priceUsd * 1e8));
     }
 

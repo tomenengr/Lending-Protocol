@@ -17,7 +17,7 @@ contract MiniLendingIsolationTest is MiniLendingTestBase {
 
         _borrow(alice, 20_000e6);
 
-        assertEq(lending.debtUSDC(alice), 20_000e6);
+        assertEq(lending.debtUsdc(alice), 20_000e6);
     }
 
     function test_revertBorrowAboveIsolationDebtCeiling() public {
