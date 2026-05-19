@@ -6,7 +6,7 @@ import {IPriceOracle} from "../interfaces/IPriceOracle.sol";
 import {LiquidationLogic} from "./LiquidationLogic.sol";
 import {RiskEngine} from "../RiskEngine.sol";
 
-abstract contract AdminLogic is LiquidationLogic {
+abstract contract LendingCore is LiquidationLogic {
     constructor(IERC20Metadata usdc_, IPriceOracle oracle_, RiskEngine riskEngine_)
         LiquidationLogic(usdc_, oracle_, riskEngine_)
     {}

@@ -4,7 +4,7 @@ pragma solidity ^0.8.24;
 import {IERC20Metadata} from "../interfaces/IERC20Metadata.sol";
 import {IPriceOracle} from "../interfaces/IPriceOracle.sol";
 import {AccountLogic} from "./AccountLogic.sol";
-import {InterestRateLogic} from "./InterestRateLogic.sol";
+import {InterestRateLogic} from "../libraries/InterestRateLogic.sol";
 import {RiskEngine} from "../RiskEngine.sol";
 
 abstract contract SupplyBorrowLogic is AccountLogic {

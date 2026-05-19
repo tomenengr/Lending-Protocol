@@ -3,17 +3,17 @@ pragma solidity ^0.8.24;
 
 import {IERC20Metadata} from "./interfaces/IERC20Metadata.sol";
 import {IPriceOracle} from "./interfaces/IPriceOracle.sol";
-import {AdminLogic} from "./libraries/AdminLogic.sol";
 import {InterestRateLogic} from "./libraries/InterestRateLogic.sol";
+import {LendingCore} from "./logic/LendingCore.sol";
 import {RiskEngine} from "./RiskEngine.sol";
 
-contract MiniLending is AdminLogic {
+contract MiniLending is LendingCore {
     constructor(
         IERC20Metadata usdc_,
         IPriceOracle oracle_,
         RiskEngine riskEngine_,
         address[] memory collateralAssets_
-    ) AdminLogic(usdc_, oracle_, riskEngine_) {
+    ) LendingCore(usdc_, oracle_, riskEngine_) {
         require(address(usdc_) != address(0), "ZERO_USDC");
         require(address(oracle_) != address(0), "ZERO_ORACLE");
         require(address(riskEngine_) != address(0), "ZERO_RISK_ENGINE");
