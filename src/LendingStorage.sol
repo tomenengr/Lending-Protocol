@@ -16,7 +16,8 @@ abstract contract LendingStorage {
     uint256 public constant SLOPE_LOW_PER_SECOND = 2_536_783_358; // about 8% APR at 100% utilization
     uint256 public constant SLOPE_HIGH_PER_SECOND = 31_709_791_983; // about 100% APR after kink
     uint256 public constant RESERVE_FACTOR_BPS = 1_000; // 10% of interest goes to protocol reserves
-    uint256 public constant GLOBAL_BORROW_CAP_USDC = 9_000_000e6;
+    /// @notice Global borrow cap in USDC (6-decimal). Configurable by owner via setGlobalBorrowCap().
+    uint256 public globalBorrowCapUsdc = 9_000_000e6;
 
     mapping(address user => mapping(address asset => uint256 amount)) public collateralBalance;
     mapping(address asset => uint256 amount) public totalCollateral;
@@ -41,6 +42,7 @@ abstract contract LendingStorage {
     RiskEngine public immutable RISK_ENGINE;
     address public owner;
     bool public paused;
+    bool private _unlocked = true;
 
     event CollateralDeposited(address indexed user, address indexed asset, uint256 amount);
     event CollateralWithdrawn(address indexed user, address indexed asset, uint256 amount);
@@ -66,6 +68,7 @@ abstract contract LendingStorage {
     );
     event ReservesWithdrawn(address indexed recipient, uint256 amountUsdc);
     event BadDebtRecapitalized(address indexed payer, uint256 amountUsdc);
+    event GlobalBorrowCapSet(uint256 newCapUsdc);
     event OwnershipTransferred(address indexed previousOwner, address indexed newOwner);
     event PausedSet(bool paused);
     event AssetFrozenSet(address indexed asset, bool frozen);
@@ -78,6 +81,13 @@ abstract contract LendingStorage {
     modifier whenNotPaused() {
         _whenNotPaused();
         _;
+    }
+
+    modifier nonReentrant() {
+        require(_unlocked, "REENTRANT");
+        _unlocked = false;
+        _;
+        _unlocked = true;
     }
 
     constructor(IERC20Metadata usdc_, IPriceOracle oracle_, RiskEngine riskEngine_) {

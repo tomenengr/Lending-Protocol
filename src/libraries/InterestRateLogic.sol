@@ -2,20 +2,33 @@
 pragma solidity ^0.8.24;
 
 library InterestRateLogic {
+    /// @notice Calculates utilization rate using the standard formula:
+    ///         utilization = totalBorrows / (cash + totalBorrows - reserves)
+    ///         This matches Compound V3 / Aave semantics: the denominator is the
+    ///         total pool (funds currently available + funds lent out), not the
+    ///         inflated supplier-side balance which includes accrued interest.
+    /// @param cash        Current token balance held by the protocol (e.g. USDC.balanceOf)
+    /// @param reserves    Protocol reserve balance (excluded from the pool)
+    /// @param totalBorrowPrincipal  Stored borrow principal (index-scaled via borrowIndex)
+    /// @param borrowIndex Current borrow index (WAD-scaled)
+    /// @param wad         WAD constant (1e18)
     function utilization(
-        uint256 totalSupplyPrincipal,
-        uint256 supplyIndex,
+        uint256 cash,
+        uint256 reserves,
         uint256 totalBorrowPrincipal,
         uint256 borrowIndex,
         uint256 wad
     ) internal pure returns (uint256) {
-        uint256 supplied = totalSupplyPrincipal * supplyIndex / wad;
-        if (supplied == 0) {
+        uint256 borrowed = totalBorrowPrincipal * borrowIndex / wad;
+        // Denominator: actual pool size = available cash (net of reserves) + outstanding borrows
+        uint256 poolSize = (cash >= reserves ? cash - reserves : 0) + borrowed;
+        if (poolSize == 0) {
             return 0;
         }
 
-        uint256 borrowed = totalBorrowPrincipal * borrowIndex / wad;
-        return borrowed * wad / supplied;
+        // Cap at WAD (100%) to prevent rate explosion in edge cases (e.g. bad-debt scenarios)
+        uint256 util = borrowed * wad / poolSize;
+        return util > wad ? wad : util;
     }
 
     function borrowRate(
@@ -68,7 +81,14 @@ library InterestRateLogic {
 
         uint256 interestAccrued = totalBorrowPrincipal * (currentBorrowIndex_ - borrowIndex) / wad;
         uint256 supplierInterest = interestAccrued * (bps - reserveFactorBps) / bps;
-        return supplyIndex + supplierInterest * wad / totalSupplyPrincipal;
+        // Supply index growth must be relative to the *current supply balance* (principal × index),
+        // not the raw principal count. Using raw principal would overstate the index growth because
+        // supplyIndex already embeds prior interest. Correct formula:
+        //   Δ supplyIndex = supplierInterest × WAD / currentTotalSupplyBalance
+        //   currentTotalSupplyBalance = totalSupplyPrincipal × supplyIndex / WAD
+        // ⟹ Δ supplyIndex = supplierInterest × WAD² / (totalSupplyPrincipal × supplyIndex)
+        uint256 currentTotalSupply = totalSupplyPrincipal * supplyIndex / wad;
+        return supplyIndex + supplierInterest * wad / currentTotalSupply;
     }
 
     function principalForAmountRoundUp(uint256 amount, uint256 index, uint256 wad) internal pure returns (uint256) {

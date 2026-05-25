@@ -13,14 +13,15 @@ abstract contract SupplyBorrowLogic is AccountLogic {
     {}
 
     function _executeSupplyBase(address user, uint256 amountUsdc) internal {
-        uint256 principal = amountUsdc * WAD / supplyIndex;
+        uint256 received = _pullUsdc(user, amountUsdc);
+
+        uint256 principal = received * WAD / supplyIndex;
         require(principal > 0, "ZERO_PRINCIPAL");
 
         _baseSupplyPrincipal[user] += principal;
         totalSupplyPrincipal += principal;
 
-        require(USDC.transferFrom(user, address(this), amountUsdc), "TRANSFER_FAILED");
-        emit BaseSupplied(user, amountUsdc);
+        emit BaseSupplied(user, received);
     }
 
     function _executeWithdrawBase(address user, uint256 amountUsdc) internal {
@@ -41,7 +42,7 @@ abstract contract SupplyBorrowLogic is AccountLogic {
     function _executeBorrow(address user, uint256 amountUsdc) internal {
         _requireNoFrozenCollateral(user);
         require(_availableLiquidity() >= amountUsdc, "INSUFFICIENT_LIQUIDITY");
-        require(_totalBorrowedUsdcStored() + amountUsdc <= GLOBAL_BORROW_CAP_USDC, "BORROW_CAP_EXCEEDED");
+        require(_totalBorrowedUsdcStored() + amountUsdc <= globalBorrowCapUsdc, "BORROW_CAP_EXCEEDED");
 
         uint256 newDebt = _borrowPrincipal[user] * borrowIndex / WAD + amountUsdc;
         (, uint256 borrowableUsd, uint256 newDebtUsd, uint256 healthFactor) = _getAccountDataWithDebt(user, newDebt);
@@ -62,19 +63,23 @@ abstract contract SupplyBorrowLogic is AccountLogic {
         require(debt > 0, "NO_DEBT");
 
         uint256 repayAmount = amountUsdc > debt ? debt : amountUsdc;
+        uint256 received = _pullUsdc(user, repayAmount);
+
         uint256 principal;
-        if (repayAmount == debt) {
+        if (received >= debt) {
             principal = _borrowPrincipal[user];
         } else {
-            principal = repayAmount * WAD / borrowIndex;
+            // Round up the principal reduction so the protocol never under-collects.
+            // Without rounding up, repeated partial repayments could leave a dust
+            // principal that never fully clears due to integer truncation.
+            principal = InterestRateLogic.principalForAmountRoundUp(received, borrowIndex, WAD);
             require(principal > 0, "ZERO_PRINCIPAL");
         }
 
         _borrowPrincipal[user] -= principal;
         totalBorrowPrincipal -= principal;
 
-        require(USDC.transferFrom(user, address(this), repayAmount), "TRANSFER_FAILED");
-        emit Repaid(user, repayAmount);
+        emit Repaid(user, received);
     }
 
     function _availableLiquidity() internal view returns (uint256) {
@@ -88,5 +93,13 @@ abstract contract SupplyBorrowLogic is AccountLogic {
 
     function _totalBorrowedUsdcStored() internal view returns (uint256) {
         return totalBorrowPrincipal * borrowIndex / WAD;
+    }
+
+    function _pullUsdc(address from, uint256 amountUsdc) internal returns (uint256) {
+        uint256 balanceBefore = USDC.balanceOf(address(this));
+        require(USDC.transferFrom(from, address(this), amountUsdc), "TRANSFER_FAILED");
+        uint256 received = USDC.balanceOf(address(this)) - balanceBefore;
+        require(received > 0, "ZERO_RECEIVED");
+        return received;
     }
 }

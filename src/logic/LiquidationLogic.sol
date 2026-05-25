@@ -4,6 +4,7 @@ pragma solidity ^0.8.24;
 import {IERC20Metadata} from "../interfaces/IERC20Metadata.sol";
 import {IPriceOracle} from "../interfaces/IPriceOracle.sol";
 import {SupplyBorrowLogic} from "./SupplyBorrowLogic.sol";
+import {InterestRateLogic} from "../libraries/InterestRateLogic.sol";
 import {RiskEngine} from "../RiskEngine.sol";
 
 abstract contract LiquidationLogic is SupplyBorrowLogic {
@@ -23,32 +24,20 @@ abstract contract LiquidationLogic is SupplyBorrowLogic {
         uint256 maxRepay = borrowerDebt * CLOSE_FACTOR_BPS / BPS;
         uint256 actualRepay = repayAmountUsdc > maxRepay ? maxRepay : repayAmountUsdc;
         require(actualRepay > 0, "ZERO_REPAY");
+        uint256 received = _pullUsdc(liquidator, actualRepay);
+        uint256 creditedRepay = received > maxRepay ? maxRepay : received;
 
-        uint256 repayValueUsd = _debtToUsd(actualRepay);
-        uint256 collateralPriceE18 = ORACLE.getPrice(collateralAsset);
-        uint8 collateralDecimals = IERC20Metadata(collateralAsset).decimals();
-        uint256 collateralToSeize =
-            RISK_ENGINE.calculateSeizeAmount(collateralAsset, repayValueUsd, collateralPriceE18, collateralDecimals);
-
-        require(collateralBalance[borrower][collateralAsset] >= collateralToSeize, "INSUFFICIENT_COLLATERAL_TO_SEIZE");
-
-        uint256 principal;
-        if (actualRepay == borrowerDebt) {
-            principal = _borrowPrincipal[borrower];
-        } else {
-            principal = actualRepay * WAD / borrowIndex;
-            require(principal > 0, "ZERO_PRINCIPAL");
-        }
+        (uint256 principal, uint256 collateralToSeize) =
+            _calculateLiquidationAmounts(borrower, collateralAsset, creditedRepay, borrowerDebt);
 
         _borrowPrincipal[borrower] -= principal;
         totalBorrowPrincipal -= principal;
         collateralBalance[borrower][collateralAsset] -= collateralToSeize;
         totalCollateral[collateralAsset] -= collateralToSeize;
 
-        require(USDC.transferFrom(liquidator, address(this), actualRepay), "TRANSFER_FAILED");
         require(IERC20Metadata(collateralAsset).transfer(liquidator, collateralToSeize), "TRANSFER_FAILED");
 
-        emit Liquidated(liquidator, borrower, collateralAsset, actualRepay, collateralToSeize);
+        emit Liquidated(liquidator, borrower, collateralAsset, creditedRepay, collateralToSeize);
     }
 
     function _executeAbsorb(address absorber, address borrower) internal {
@@ -94,7 +83,8 @@ abstract contract LiquidationLogic is SupplyBorrowLogic {
     {
         require(isCollateralAsset[collateralAsset], "UNSUPPORTED_ASSET");
 
-        uint256 repayValueUsd = _debtToUsd(amountUsdc);
+        uint256 received = _pullUsdc(buyer, amountUsdc);
+        uint256 repayValueUsd = _debtToUsd(received);
         uint256 collateralPriceE18 = ORACLE.getPrice(collateralAsset);
         uint8 collateralDecimals = IERC20Metadata(collateralAsset).decimals();
         uint256 collateralToBuy =
@@ -105,15 +95,38 @@ abstract contract LiquidationLogic is SupplyBorrowLogic {
 
         protocolCollateralBalance[collateralAsset] -= collateralToBuy;
 
-        require(USDC.transferFrom(buyer, address(this), amountUsdc), "TRANSFER_FAILED");
         require(IERC20Metadata(collateralAsset).transfer(buyer, collateralToBuy), "TRANSFER_FAILED");
 
-        emit CollateralPurchased(buyer, collateralAsset, amountUsdc, collateralToBuy);
+        emit CollateralPurchased(buyer, collateralAsset, received, collateralToBuy);
     }
 
     function _recognizeBadDebt(uint256 amountUsdc) internal {
         uint256 reservesUsed = amountUsdc > protocolReservesUsdc ? protocolReservesUsdc : amountUsdc;
         protocolReservesUsdc -= reservesUsed;
         badDebtUsdc += amountUsdc - reservesUsed;
+    }
+
+    function _calculateLiquidationAmounts(
+        address borrower,
+        address collateralAsset,
+        uint256 repayAmountUsdc,
+        uint256 borrowerDebt
+    ) internal view returns (uint256 principal, uint256 collateralToSeize) {
+        uint256 repayValueUsd = _debtToUsd(repayAmountUsdc);
+        uint256 collateralPriceE18 = ORACLE.getPrice(collateralAsset);
+        uint8 collateralDecimals = IERC20Metadata(collateralAsset).decimals();
+        collateralToSeize =
+            RISK_ENGINE.calculateSeizeAmount(collateralAsset, repayValueUsd, collateralPriceE18, collateralDecimals);
+
+        require(collateralBalance[borrower][collateralAsset] >= collateralToSeize, "INSUFFICIENT_COLLATERAL_TO_SEIZE");
+
+        if (repayAmountUsdc >= borrowerDebt) {
+            principal = _borrowPrincipal[borrower];
+        } else {
+            // Round up to match repay logic: ensures the borrower's principal is
+            // fully cleared when repayAmountUsdc covers the full debt amount.
+            principal = InterestRateLogic.principalForAmountRoundUp(repayAmountUsdc, borrowIndex, WAD);
+            require(principal > 0, "ZERO_PRINCIPAL");
+        }
     }
 }

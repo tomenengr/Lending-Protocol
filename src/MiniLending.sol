@@ -49,36 +49,44 @@ contract MiniLending is LendingCore {
         _executeSetAssetFrozen(asset, frozen);
     }
 
-    function depositCollateral(address asset, uint256 amount) external whenNotPaused {
+    function setGlobalBorrowCap(uint256 newCapUsdc) external onlyOwner {
+        _executeSetGlobalBorrowCap(newCapUsdc);
+    }
+
+    function depositCollateral(address asset, uint256 amount) external whenNotPaused nonReentrant {
         require(isCollateralAsset[asset], "UNSUPPORTED_ASSET");
         require(!assetFrozen[asset], "ASSET_FROZEN");
         require(amount > 0, "ZERO_AMOUNT");
         RiskEngine.RiskConfig memory config = RISK_ENGINE.getRiskConfig(asset);
-        require(totalCollateral[asset] + amount <= config.supplyCap, "SUPPLY_CAP_EXCEEDED");
         _enforceIsolationOnDeposit(msg.sender, asset, config);
 
-        collateralBalance[msg.sender][asset] += amount;
-        totalCollateral[asset] += amount;
+        uint256 balanceBefore = IERC20Metadata(asset).balanceOf(address(this));
         require(IERC20Metadata(asset).transferFrom(msg.sender, address(this), amount), "TRANSFER_FAILED");
+        uint256 received = IERC20Metadata(asset).balanceOf(address(this)) - balanceBefore;
+        require(received > 0, "ZERO_RECEIVED");
+        require(totalCollateral[asset] + received <= config.supplyCap, "SUPPLY_CAP_EXCEEDED");
 
-        emit CollateralDeposited(msg.sender, asset, amount);
+        collateralBalance[msg.sender][asset] += received;
+        totalCollateral[asset] += received;
+
+        emit CollateralDeposited(msg.sender, asset, received);
     }
 
-    function supplyBase(uint256 amountUsdc) external whenNotPaused {
+    function supplyBase(uint256 amountUsdc) external whenNotPaused nonReentrant {
         require(amountUsdc > 0, "ZERO_AMOUNT");
         accrueInterest();
 
         _executeSupplyBase(msg.sender, amountUsdc);
     }
 
-    function withdrawBase(uint256 amountUsdc) external whenNotPaused {
+    function withdrawBase(uint256 amountUsdc) external whenNotPaused nonReentrant {
         require(amountUsdc > 0, "ZERO_AMOUNT");
         accrueInterest();
 
         _executeWithdrawBase(msg.sender, amountUsdc);
     }
 
-    function withdrawCollateral(address asset, uint256 amount) external whenNotPaused {
+    function withdrawCollateral(address asset, uint256 amount) external whenNotPaused nonReentrant {
         require(isCollateralAsset[asset], "UNSUPPORTED_ASSET");
         require(amount > 0, "ZERO_AMOUNT");
         accrueInterest();
@@ -92,21 +100,21 @@ contract MiniLending is LendingCore {
         emit CollateralWithdrawn(msg.sender, asset, amount);
     }
 
-    function borrow(uint256 amountUsdc) external whenNotPaused {
+    function borrow(uint256 amountUsdc) external whenNotPaused nonReentrant {
         require(amountUsdc > 0, "ZERO_AMOUNT");
         accrueInterest();
 
         _executeBorrow(msg.sender, amountUsdc);
     }
 
-    function repay(uint256 amountUsdc) external {
+    function repay(uint256 amountUsdc) external nonReentrant {
         require(amountUsdc > 0, "ZERO_AMOUNT");
         accrueInterest();
 
         _executeRepay(msg.sender, amountUsdc);
     }
 
-    function liquidate(address borrower, address collateralAsset, uint256 repayAmountUsdc) external {
+    function liquidate(address borrower, address collateralAsset, uint256 repayAmountUsdc) external nonReentrant {
         require(repayAmountUsdc > 0, "ZERO_AMOUNT");
         accrueInterest();
 
@@ -122,6 +130,7 @@ contract MiniLending is LendingCore {
     function buyCollateral(address collateralAsset, uint256 amountUsdc, uint256 minCollateralAmount)
         external
         whenNotPaused
+        nonReentrant
     {
         require(amountUsdc > 0, "ZERO_AMOUNT");
         accrueInterest();
@@ -129,14 +138,14 @@ contract MiniLending is LendingCore {
         _executeBuyCollateral(msg.sender, collateralAsset, amountUsdc, minCollateralAmount);
     }
 
-    function withdrawReserves(address recipient, uint256 amountUsdc) external onlyOwner {
+    function withdrawReserves(address recipient, uint256 amountUsdc) external onlyOwner nonReentrant {
         require(amountUsdc > 0, "ZERO_AMOUNT");
         accrueInterest();
 
         _executeWithdrawReserves(recipient, amountUsdc);
     }
 
-    function recapitalizeBadDebt(uint256 amountUsdc) external {
+    function recapitalizeBadDebt(uint256 amountUsdc) external nonReentrant {
         require(amountUsdc > 0, "ZERO_AMOUNT");
         accrueInterest();
 
@@ -285,6 +294,12 @@ contract MiniLending is LendingCore {
     }
 
     function _getStoredUtilization() internal view returns (uint256) {
-        return InterestRateLogic.utilization(totalSupplyPrincipal, supplyIndex, totalBorrowPrincipal, borrowIndex, WAD);
+        return InterestRateLogic.utilization(
+            USDC.balanceOf(address(this)),
+            protocolReservesUsdc,
+            totalBorrowPrincipal,
+            borrowIndex,
+            WAD
+        );
     }
 }

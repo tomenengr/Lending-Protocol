@@ -28,6 +28,12 @@ abstract contract LendingCore is LiquidationLogic {
         emit AssetFrozenSet(asset, frozen);
     }
 
+    function _executeSetGlobalBorrowCap(uint256 newCapUsdc) internal {
+        require(newCapUsdc > 0, "ZERO_BORROW_CAP");
+        globalBorrowCapUsdc = newCapUsdc;
+        emit GlobalBorrowCapSet(newCapUsdc);
+    }
+
     function _executeWithdrawReserves(address recipient, uint256 amountUsdc) internal {
         require(recipient != address(0), "ZERO_RECIPIENT");
         require(amountUsdc <= protocolReservesUsdc, "INSUFFICIENT_RESERVES");
@@ -44,9 +50,11 @@ abstract contract LendingCore is LiquidationLogic {
         require(badDebt > 0, "NO_BAD_DEBT");
 
         uint256 actualAmount = amountUsdc > badDebt ? badDebt : amountUsdc;
-        badDebtUsdc = badDebt - actualAmount;
 
-        require(USDC.transferFrom(payer, address(this), actualAmount), "TRANSFER_FAILED");
-        emit BadDebtRecapitalized(payer, actualAmount);
+        uint256 received = _pullUsdc(payer, actualAmount);
+
+        badDebtUsdc = received >= badDebt ? 0 : badDebt - received;
+
+        emit BadDebtRecapitalized(payer, received);
     }
 }

@@ -12,19 +12,23 @@ contract MiniLendingRepayTest is MiniLendingTestBase {
         _borrow(alice, 2_000e6);
     }
 
-    function test_repayPartialDebt() public {
-        _repay(alice, 500e6);
+    function test_repayPartialDebtUpdatesDebtHealthAndCash() public {
+        uint256 protocolBefore = usdc.balanceOf(address(lending));
+        uint256 healthBefore = lending.getHealthFactor(alice);
+
+        vm.startPrank(alice);
+        usdc.approve(address(lending), 500e6);
+        vm.expectEmit(true, false, false, true);
+        emit Repaid(alice, 500e6);
+        lending.repay(500e6);
+        vm.stopPrank();
 
         assertEq(lending.debtUsdc(alice), 1_500e6);
+        assertGt(lending.getHealthFactor(alice), healthBefore);
+        assertEq(usdc.balanceOf(address(lending)), protocolBefore + 500e6);
     }
 
-    function test_repayFullDebt() public {
-        _repay(alice, 2_000e6);
-
-        assertEq(lending.debtUsdc(alice), 0);
-    }
-
-    function test_repayMoreThanDebtOnlyTakesDebt() public {
+    function test_repayMoreThanDebtOnlyTakesOutstandingDebt() public {
         uint256 aliceBefore = usdc.balanceOf(alice);
         _repay(alice, 3_000e6);
 
@@ -32,47 +36,22 @@ contract MiniLendingRepayTest is MiniLendingTestBase {
         assertEq(usdc.balanceOf(alice), aliceBefore - 2_000e6);
     }
 
-    function test_revertRepayZero() public {
+    function test_multipleRepaysCanClearDebt() public {
+        _repay(alice, 400e6);
+        _repay(alice, 1_600e6);
+
+        assertEq(lending.debtUsdc(alice), 0);
+    }
+
+    function test_revertRepayInvalidStateOrAmount() public {
         vm.prank(alice);
         vm.expectRevert(bytes("ZERO_AMOUNT"));
         lending.repay(0);
-    }
 
-    function test_revertRepayWithoutDebt() public {
         vm.startPrank(bob);
         usdc.approve(address(lending), 100e6);
         vm.expectRevert(bytes("NO_DEBT"));
         lending.repay(100e6);
-        vm.stopPrank();
-    }
-
-    function test_repayImprovesHealthFactor() public {
-        uint256 beforeHealthFactor = lending.getHealthFactor(alice);
-        _repay(alice, 1_000e6);
-
-        assertGt(lending.getHealthFactor(alice), beforeHealthFactor);
-    }
-
-    function test_repayTransfersUSDCToProtocol() public {
-        uint256 protocolBefore = usdc.balanceOf(address(lending));
-        _repay(alice, 750e6);
-
-        assertEq(usdc.balanceOf(address(lending)), protocolBefore + 750e6);
-    }
-
-    function test_multipleRepaysReduceDebt() public {
-        _repay(alice, 400e6);
-        _repay(alice, 600e6);
-
-        assertEq(lending.debtUsdc(alice), 1_000e6);
-    }
-
-    function test_repayEmitsEvent() public {
-        vm.startPrank(alice);
-        usdc.approve(address(lending), 500e6);
-        vm.expectEmit(true, false, false, true);
-        emit Repaid(alice, 500e6);
-        lending.repay(500e6);
         vm.stopPrank();
     }
 

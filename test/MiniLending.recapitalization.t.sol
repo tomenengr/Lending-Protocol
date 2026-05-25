@@ -6,86 +6,52 @@ import {MiniLendingTestBase} from "./helpers/MiniLendingTestBase.sol";
 contract MiniLendingRecapitalizationTest is MiniLendingTestBase {
     event BadDebtRecapitalized(address indexed payer, uint256 amountUsdc);
 
-    function test_recapitalizeBadDebtPartial() public {
+    function test_recapitalizeBadDebtPartialAndFull() public {
         uint256 badDebt = _createBadDebt();
-        uint256 amount = badDebt / 2;
+        uint256 half = badDebt / 2;
 
-        _recapitalize(bob, amount);
-
-        assertEq(lending.badDebtUsdc(), badDebt - amount);
-    }
-
-    function test_recapitalizeBadDebtFull() public {
-        uint256 badDebt = _createBadDebt();
+        _recapitalize(bob, half);
+        assertEq(lending.badDebtUsdc(), badDebt - half);
 
         _recapitalize(bob, badDebt);
-
         assertEq(lending.badDebtUsdc(), 0);
     }
 
-    function test_recapitalizeMoreThanBadDebtOnlyTakesBadDebt() public {
+    function test_recapitalizeTakesOnlyOutstandingDebtAndTransfersCash() public {
         uint256 badDebt = _createBadDebt();
         uint256 bobBefore = usdc.balanceOf(bob);
+        uint256 protocolBefore = usdc.balanceOf(address(lending));
 
-        _recapitalize(bob, badDebt + 1_000e6);
+        vm.startPrank(bob);
+        usdc.approve(address(lending), badDebt + 1_000e6);
+        vm.expectEmit(true, false, false, true);
+        emit BadDebtRecapitalized(bob, badDebt);
+        lending.recapitalizeBadDebt(badDebt + 1_000e6);
+        vm.stopPrank();
 
         assertEq(lending.badDebtUsdc(), 0);
         assertEq(usdc.balanceOf(bob), bobBefore - badDebt);
-    }
-
-    function test_recapitalizeTransfersUSDCToProtocol() public {
-        uint256 badDebt = _createBadDebt();
-        uint256 protocolBefore = usdc.balanceOf(address(lending));
-
-        _recapitalize(bob, badDebt);
-
         assertEq(usdc.balanceOf(address(lending)), protocolBefore + badDebt);
     }
 
-    function test_recapitalizeEmitsEvent() public {
+    function test_recapitalizeIsPermissionlessAndAllowedWhilePaused() public {
         uint256 badDebt = _createBadDebt();
-
-        vm.startPrank(bob);
-        usdc.approve(address(lending), badDebt);
-        vm.expectEmit(true, false, false, true);
-        emit BadDebtRecapitalized(bob, badDebt);
-        lending.recapitalizeBadDebt(badDebt);
-        vm.stopPrank();
-    }
-
-    function test_recapitalizeIsPermissionless() public {
-        uint256 badDebt = _createBadDebt();
+        lending.setPaused(true);
 
         _recapitalize(alice, badDebt);
 
         assertEq(lending.badDebtUsdc(), 0);
     }
 
-    function test_recapitalizeAllowedWhilePaused() public {
-        uint256 badDebt = _createBadDebt();
-        lending.setPaused(true);
-
-        _recapitalize(bob, badDebt);
-
-        assertEq(lending.badDebtUsdc(), 0);
-    }
-
-    function test_revertRecapitalizeZeroAmount() public {
-        _createBadDebt();
-
-        vm.prank(bob);
-        vm.expectRevert(bytes("ZERO_AMOUNT"));
-        lending.recapitalizeBadDebt(0);
-    }
-
-    function test_revertRecapitalizeWithoutBadDebt() public {
+    function test_revertRecapitalizeInvalidInputOrAllowance() public {
         vm.prank(bob);
         vm.expectRevert(bytes("NO_BAD_DEBT"));
         lending.recapitalizeBadDebt(1e6);
-    }
 
-    function test_revertRecapitalizeWithoutAllowance() public {
         uint256 badDebt = _createBadDebt();
+        vm.prank(bob);
+        vm.expectRevert(bytes("ZERO_AMOUNT"));
+        lending.recapitalizeBadDebt(0);
 
         vm.prank(bob);
         vm.expectRevert(bytes("ERC20_INSUFFICIENT_ALLOWANCE"));
