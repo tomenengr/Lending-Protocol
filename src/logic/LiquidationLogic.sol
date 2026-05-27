@@ -97,7 +97,27 @@ abstract contract LiquidationLogic is SupplyBorrowLogic {
 
         require(IERC20Metadata(collateralAsset).transfer(buyer, collateralToBuy), "TRANSFER_FAILED");
 
+        // Route the USDC proceeds to bad debt recovery first; any surplus goes to
+        // protocol reserves so suppliers indirectly benefit from the collateral sale.
+        _recoverBadDebt(received);
+
         emit CollateralPurchased(buyer, collateralAsset, received, collateralToBuy);
+    }
+
+    /// @notice Apply incoming USDC (from collateral sales) against outstanding bad debt.
+    ///         Any surplus beyond the current bad debt balance is credited to protocol
+    ///         reserves, which accrue to suppliers via the supply index over time.
+    function _recoverBadDebt(uint256 amountUsdc) internal {
+        uint256 currentBadDebt = badDebtUsdc;
+        uint256 applied = amountUsdc > currentBadDebt ? currentBadDebt : amountUsdc;
+        badDebtUsdc -= applied;
+        uint256 surplus = amountUsdc - applied;
+        if (surplus > 0) {
+            protocolReservesUsdc += surplus;
+        }
+        if (applied > 0) {
+            emit BadDebtRecovered(msg.sender, applied);
+        }
     }
 
     function _recognizeBadDebt(uint256 amountUsdc) internal {

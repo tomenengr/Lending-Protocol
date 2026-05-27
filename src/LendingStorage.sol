@@ -68,6 +68,7 @@ abstract contract LendingStorage {
     );
     event ReservesWithdrawn(address indexed recipient, uint256 amountUsdc);
     event BadDebtRecapitalized(address indexed payer, uint256 amountUsdc);
+    event BadDebtRecovered(address indexed buyer, uint256 amountUsdc);
     event GlobalBorrowCapSet(uint256 newCapUsdc);
     event OwnershipTransferred(address indexed previousOwner, address indexed newOwner);
     event PausedSet(bool paused);
