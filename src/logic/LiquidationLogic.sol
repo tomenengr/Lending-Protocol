@@ -78,9 +78,12 @@ abstract contract LiquidationLogic is SupplyBorrowLogic {
         emit Absorbed(absorber, borrower, borrowerDebt, badDebtRecognized);
     }
 
-    function _executeBuyCollateral(address buyer, address collateralAsset, uint256 amountUsdc, uint256 minCollateralAmount)
-        internal
-    {
+    function _executeBuyCollateral(
+        address buyer,
+        address collateralAsset,
+        uint256 amountUsdc,
+        uint256 minCollateralAmount
+    ) internal {
         require(isCollateralAsset[collateralAsset], "UNSUPPORTED_ASSET");
 
         uint256 received = _pullUsdc(buyer, amountUsdc);

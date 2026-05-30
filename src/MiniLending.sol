@@ -8,12 +8,9 @@ import {LendingCore} from "./logic/LendingCore.sol";
 import {RiskEngine} from "./RiskEngine.sol";
 
 contract MiniLending is LendingCore {
-    constructor(
-        IERC20Metadata usdc_,
-        IPriceOracle oracle_,
-        RiskEngine riskEngine_,
-        address[] memory collateralAssets_
-    ) LendingCore(usdc_, oracle_, riskEngine_) {
+    constructor(IERC20Metadata usdc_, IPriceOracle oracle_, RiskEngine riskEngine_, address[] memory collateralAssets_)
+        LendingCore(usdc_, oracle_, riskEngine_)
+    {
         require(address(usdc_) != address(0), "ZERO_USDC");
         require(address(oracle_) != address(0), "ZERO_ORACLE");
         require(address(riskEngine_) != address(0), "ZERO_RISK_ENGINE");
@@ -295,11 +292,7 @@ contract MiniLending is LendingCore {
 
     function _getStoredUtilization() internal view returns (uint256) {
         return InterestRateLogic.utilization(
-            USDC.balanceOf(address(this)),
-            protocolReservesUsdc,
-            totalBorrowPrincipal,
-            borrowIndex,
-            WAD
+            USDC.balanceOf(address(this)), protocolReservesUsdc, totalBorrowPrincipal, borrowIndex, WAD
         );
     }
 }

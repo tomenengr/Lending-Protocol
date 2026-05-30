@@ -12,13 +12,11 @@ library InterestRateLogic {
     /// @param totalBorrowPrincipal  Stored borrow principal (index-scaled via borrowIndex)
     /// @param borrowIndex Current borrow index (WAD-scaled)
     /// @param wad         WAD constant (1e18)
-    function utilization(
-        uint256 cash,
-        uint256 reserves,
-        uint256 totalBorrowPrincipal,
-        uint256 borrowIndex,
-        uint256 wad
-    ) internal pure returns (uint256) {
+    function utilization(uint256 cash, uint256 reserves, uint256 totalBorrowPrincipal, uint256 borrowIndex, uint256 wad)
+        internal
+        pure
+        returns (uint256)
+    {
         uint256 borrowed = totalBorrowPrincipal * borrowIndex / wad;
         // Denominator: actual pool size = available cash (net of reserves) + outstanding borrows
         uint256 poolSize = (cash >= reserves ? cash - reserves : 0) + borrowed;
